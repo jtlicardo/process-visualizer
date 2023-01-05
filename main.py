@@ -1,7 +1,6 @@
 from process_bpmn_data import *
 from graph_generator import GraphGenerator
 import argparse
-import json
 
 
 def generate_graph():
