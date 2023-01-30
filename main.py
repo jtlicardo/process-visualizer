@@ -7,8 +7,11 @@ def generate_graph():
 
     parser = argparse.ArgumentParser()
 
+    parser.add_argument("-t", "--text", help="Textual description of a process")
     parser.add_argument(
-        "-t", "--text", help="Textual description of a process", required=True
+        "-f",
+        "--file",
+        help="Path to a file containing a textual description of a process",
     )
     parser.add_argument(
         "-n",
@@ -19,13 +22,22 @@ def generate_graph():
 
     args = parser.parse_args()
 
+    if not (args.text or args.file):
+        parser.error("Please provide a text or a file")
+
+    if args.text:
+        text = args.text
+    elif args.file:
+        with open(args.file, "r") as f:
+            text = f.read()
+
     print("\nGenerating graph...\n")
 
-    sents = split_into_sents(args.text)
+    sents = split_into_sents(text)
 
     parallel_sentences = find_sentences_with_parallel_keywords(sents)
 
-    data = query({"inputs": args.text, "options": {"wait_for_model": True}})
+    data = query({"inputs": text, "options": {"wait_for_model": True}})
 
     agents = extract_entities("AGENT", data)
     tasks = extract_entities("TASK", data)
