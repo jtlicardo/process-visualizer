@@ -1,6 +1,5 @@
 import json
 import requests
-import nltk
 import spacy
 from spacy.matcher import Matcher
 
@@ -10,31 +9,26 @@ API_URL = (
 )
 
 
-def split_into_sentences(text):
+def get_sentences(text):
+    nlp = spacy.load("en_core_web_sm")
+    doc = nlp(text)
+    sentences = [str(i) for i in list(doc.sents)]
+    return sentences
 
-    sents = nltk.sent_tokenize(text)
-    sents_data = []
+
+def create_sentence_data(sentences):
+
     counter = 0
+    sentence_data = []
 
-    for sent in sents:
+    for sent in sentences:
         start = counter
         end = counter + len(sent)
         counter += len(sent) + 1
         sentence = {"sentence": sent, "start": start, "end": end}
-        sents_data.append(sentence)
+        sentence_data.append(sentence)
 
-    return sents_data
-
-
-def split_into_sents(text):
-    try:
-        sents = split_into_sentences(text)
-    except LookupError:
-        print("Downloading NLTK data...")
-        nltk.download("punkt")
-        nltk.download("averaged_perceptron_tagger")
-        sents = split_into_sentences(text)
-    return sents
+    return sentence_data
 
 
 def query(payload):

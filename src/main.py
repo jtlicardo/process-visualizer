@@ -32,10 +32,12 @@ def generate_graph():
             text = f.read()
 
     print("\nGenerating graph...\n")
+    print("Input text:\n" + text)
 
-    sents = split_into_sents(text)
+    sents = get_sentences(text)
+    sents_data = create_sentence_data(sents)
 
-    parallel_sentences = find_sentences_with_parallel_keywords(sents)
+    parallel_sentences = find_sentences_with_parallel_keywords(sents_data)
 
     data = query({"inputs": text, "options": {"wait_for_model": True}})
 
@@ -43,18 +45,18 @@ def generate_graph():
     tasks = extract_entities("TASK", data)
     conditions = extract_entities("CONDITION", data)
 
-    agent_task_pairs = create_agent_task_pairs(agents, tasks, sents)
+    agent_task_pairs = create_agent_task_pairs(agents, tasks, sents_data)
 
     if len(conditions) > 0:
         agent_task_pairs = connect_conditions_with_task(
-            conditions, agent_task_pairs, sents
+            conditions, agent_task_pairs, sents_data
         )
 
     agent_task_pairs = add_parallel_to_task_pairs(
-        agent_task_pairs, sents, parallel_sentences
+        agent_task_pairs, sents_data, parallel_sentences
     )
 
-    end_of_blocks = detect_end_of_block(sents)
+    end_of_blocks = detect_end_of_block(sents_data)
 
     if len(end_of_blocks) != 0:
 
