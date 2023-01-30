@@ -1,0 +1,1 @@
+The manager sends the mail to the supplier and prepares the documents. At the same time, the customer searches for the goods and picks up the goods.
