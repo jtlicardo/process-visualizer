@@ -48,13 +48,9 @@ def generate_graph():
     agent_task_pairs = create_agent_task_pairs(agents, tasks, sents_data)
 
     if len(conditions) > 0:
-        agent_task_pairs = connect_conditions_with_task(
-            conditions, agent_task_pairs, sents_data
-        )
+        agent_task_pairs = add_conditions(conditions, agent_task_pairs, sents_data)
 
-    agent_task_pairs = add_parallel_to_task_pairs(
-        agent_task_pairs, sents_data, parallel_sentences
-    )
+    agent_task_pairs = add_parallel(agent_task_pairs, sents_data, parallel_sentences)
 
     end_of_blocks = detect_end_of_block(sents_data)
 
@@ -81,6 +77,7 @@ def generate_graph():
             bpmn = GraphGenerator(combined)
 
     else:
+
         output = create_bpmn_structure(agent_task_pairs)
 
         if args.notebook:

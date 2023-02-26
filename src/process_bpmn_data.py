@@ -75,7 +75,7 @@ def create_agent_task_pairs(agents, tasks, sentences):
     return agent_task_pairs
 
 
-def connect_conditions_with_task(conditions, agent_task_pairs, sentences):
+def add_conditions(conditions, agent_task_pairs, sentences):
 
     updated_agent_task_pairs = []
 
@@ -163,7 +163,7 @@ def find_sentences_with_parallel_keywords(sentences):
     return detected_sentences
 
 
-def add_parallel_to_task_pairs(agent_task_pairs, sentences, parallel_sentences):
+def add_parallel(agent_task_pairs, sentences, parallel_sentences):
 
     updated_agent_task_pairs = []
 
