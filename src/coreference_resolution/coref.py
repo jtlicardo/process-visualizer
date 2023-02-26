@@ -1,5 +1,6 @@
 import spacy
 from spacy.tokens import SpanGroup
+import os
 
 
 def process_text(text):
@@ -105,7 +106,23 @@ def resolve_references(text: str, print_clusters: bool = False) -> str:
     return output_string
 
 
-with open("src/coreference_resolution/sample_texts/text_0.txt", "r") as file:
-    text = file.read()
+def batch_resolve_references(input_folder: str, output_folder: str):
+    """
+    Resolves coreferences in all .txt files in a folder
+    Args:
+        input_folder (str): Path to the input folder
+        output_folder (str): Path to the output folder
+    """
 
-print(resolve_references(text))
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
+    for file_name in os.listdir(input_folder):
+        if file_name.endswith(".txt"):
+            with open(os.path.join(input_folder, file_name), "r") as file:
+                text = file.read()
+
+            output = resolve_references(text)
+
+            with open(os.path.join(output_folder, file_name), "w") as file:
+                file.write(output)
