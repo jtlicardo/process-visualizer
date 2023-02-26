@@ -4,9 +4,7 @@ import spacy
 from spacy.matcher import Matcher
 
 
-API_URL = (
-    "https://api-inference.huggingface.co/models/jtlicardo/bpmn-information-extraction"
-)
+API_URL = "https://api-inference.huggingface.co/models/jtlicardo/bpmn-information-extraction-v2"
 
 
 def get_sentences(text):
