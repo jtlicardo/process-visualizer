@@ -272,3 +272,12 @@ def create_bpmn_structure(input):
             return [create_bpmn_structure(input[0])] + [*remainder]
         else:
             return [create_bpmn_structure(input[0])] + [remainder]
+
+
+def should_resolve_coreferences(text):
+    nlp = spacy.load("en_core_web_sm")
+    doc = nlp(text)
+    for token in doc:
+        if token.lower_ in ["he", "she", "it", "they"]:
+            return True
+    return False

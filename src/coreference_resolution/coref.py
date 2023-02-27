@@ -96,9 +96,9 @@ def resolve_references(text: str, print_clusters: bool = False) -> str:
 
     # Iterate through every token in the Doc
     for token in doc2:
-        # Check if token exists in token_mention_mapper; ignore pronouns
+        # Check if token exists in token_mention_mapper
         if token.idx in token_mention_mapper:
-            output_string += token_mention_mapper[token.idx]
+            output_string += token_mention_mapper[token.idx].lower()
         # Else add original token text
         else:
             output_string += token.text + token.whitespace_
