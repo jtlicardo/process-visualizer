@@ -61,6 +61,11 @@ class GraphGenerator:
                 self.bpmn.node(name=f"START_{start_event_counter}", label="START")
                 self.connect(f"START_{start_event_counter}", str(key))
                 start_event_counter += 1
+            elif v["before"][0].startswith("T") and k == "T0":
+                key = k
+                self.bpmn.node(name=f"START_{start_event_counter}", label="START")
+                self.connect(f"START_{start_event_counter}", str(key))
+                start_event_counter += 1
             if k.startswith("EG") and k.endswith("S") and len(v["after"]) == 1:
                 key = k
                 self.bpmn.node(name=f"END_{end_event_counter}", label="END")
@@ -134,6 +139,39 @@ class GraphGenerator:
                 count += 1
         return count
 
+    def check_for_loops_in_gateway(self, gateway):
+        assert isinstance(gateway, dict)
+        for child in gateway["children"]:
+            if isinstance(child, list):
+                for element in child:
+                    if element["type"] == "loop":
+                        return True
+            else:
+                if child["type"] == "loop":
+                    return True
+        return False
+
+    def check_for_loops_in_list(self, lst):
+        assert isinstance(lst, list)
+        for element in lst:
+            if element["type"] == "loop":
+                return True
+        return False
+
+    def get_last_task_in_gateway_in_path_with_no_loops(self, gateway):
+        assert isinstance(gateway, dict)
+        last_task = None
+        for child in gateway["children"]:
+            if isinstance(child, list):
+                if not self.check_for_loops_in_list(child):
+                    for element in child:
+                        if element["type"] == "task":
+                            last_task = element
+            else:
+                if child["type"] == "task":
+                    last_task = child
+        return last_task
+
     def create_node(self, element, type, agent=None, task=None):
 
         assert type == "T" or type == "E" or type == "P"
@@ -165,7 +203,7 @@ class GraphGenerator:
 
             self.bpmn.node(name=f"{type}G{counter}_S", label=label)
 
-            if "single_condition" not in element:
+            if "single_condition" not in element and "has_loops" not in element:
                 self.bpmn.node(name=f"{type}G{counter}_E", label=label)
 
             element["id"] = f"{type}G{counter}"
@@ -218,14 +256,29 @@ class GraphGenerator:
             if (
                 previous_element["type"] == "exclusive"
                 or previous_element["type"] == "parallel"
-            ):
+            ) and "has_loops" not in previous_element:
                 self.connect(
                     f"{previous_element['id']}_E",
                     f"{element['id']}",
                 )
+            elif (
+                previous_element["type"] == "exclusive"
+                or previous_element["type"] == "parallel"
+            ) and previous_element["has_loops"] is True:
+                last_task = self.get_last_task_in_gateway_in_path_with_no_loops(
+                    previous_element
+                )
+                self.connect(
+                    f"{last_task['id']}",
+                    f"{element['id']}",
+                )
 
         if last:
-            if parent_gateway is not None and "single_condition" not in parent_gateway:
+            if (
+                parent_gateway is not None
+                and "single_condition" not in parent_gateway
+                and "has_loops" not in parent_gateway
+            ):
                 self.connect(
                     f"{element['id']}",
                     f"{parent_gateway['id']}_E",
@@ -253,7 +306,11 @@ class GraphGenerator:
                     parent_gateway=parent_gateway,
                     previous_element=previous_element,
                 )
-
+            elif element["type"] == "loop":
+                assert parent_gateway["type"] == "exclusive"
+                assert previous_element is not None
+                assert last is True
+                self.connect(f"{previous_element['id']}", element["content"]["go_to"])
             elif element["type"] == "exclusive":
                 self.handle_gateway(
                     element=element,
@@ -282,6 +339,9 @@ class GraphGenerator:
             if num == 1:
                 element["children"] = [element["children"]]
                 element["single_condition"] = True
+
+        if self.check_for_loops_in_gateway(element):
+            element["has_loops"] = True
 
         self.create_node(
             type="P", element=element
@@ -314,6 +374,13 @@ class GraphGenerator:
                         last=True,
                         parent_gateway=element,
                         previous_element=previous_child,
+                    )
+                elif child["type"] == "loop":
+                    assert "condition" in child["content"]
+                    self.connect(
+                        f"{element['id']}_S",
+                        child["content"]["go_to"],
+                        label_parameter=child["content"]["condition"]["word"],
                     )
                 elif child["type"] == "parallel":
                     self.handle_gateway(

@@ -2,7 +2,7 @@ import json
 import requests
 import spacy
 from spacy.matcher import Matcher
-
+from sentence_transformers import SentenceTransformer, util
 
 API_URL = "https://api-inference.huggingface.co/models/jtlicardo/bpmn-information-extraction-v2"
 
@@ -35,7 +35,15 @@ def query(payload):
     return json.loads(response.content.decode("utf-8"))
 
 
-def extract_entities(type, data):
+def extract_entities(type: str, data: list) -> list:
+    """
+    Extracts all entities of a given type from the model output
+    Args:
+        type (str): the type of entity to extract
+        data (list): the model output
+    Returns:
+        list: a list of entities of the given type
+    """
     agents = []
     for entity in data:
         if entity["entity_group"] == type and entity["score"] > 0.5:
@@ -161,6 +169,30 @@ def find_sentences_with_parallel_keywords(sentences):
     return detected_sentences
 
 
+def find_sentences_with_loop_keywords(sentences):
+
+    nlp = spacy.load("en_core_web_md")
+
+    matcher = Matcher(nlp.vocab)
+
+    pattern_1 = [{"LOWER": "again"}]
+
+    matcher.add("LOOP", [pattern_1])
+
+    detected_sentences = []
+
+    for sent in sentences:
+
+        doc = nlp(sent["sentence"])
+
+        matches = matcher(doc)
+
+        if len(matches) > 0:
+            detected_sentences.append(sent)
+
+    return detected_sentences
+
+
 def add_parallel(agent_task_pairs, sentences, parallel_sentences):
 
     updated_agent_task_pairs = []
@@ -183,6 +215,110 @@ def add_parallel(agent_task_pairs, sentences, parallel_sentences):
     return updated_agent_task_pairs
 
 
+def compare_tasks(task1: str, task2: str) -> float:
+    """
+    Compares two tasks using the sentence-transformers model
+    Args:
+        task1 (str): the first task
+        task2 (str): the second task
+    Returns:
+        float: the cosine similarity score
+    """
+    model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+    embeddings1 = model.encode(task1, convert_to_tensor=True)
+    embeddings2 = model.encode(task2, convert_to_tensor=True)
+    cosine_scores = util.cos_sim(embeddings1, embeddings2)
+    return cosine_scores[0][0]
+
+
+def find_task_with_highest_similarity(task: dict, list: list) -> str:
+    """
+    Finds the task in the list that has the highest cosine similarity with the given task
+    Args:
+        task (dict): the task to compare
+        list (list): the list of tasks to compare with
+    Returns:
+        str: the task with the highest cosine similarity
+    """
+    highest_cosine_similarity = 0
+    highest_cosine_similarity_task = None
+    for t in list:
+        cosine_similarity = compare_tasks(task["word"], t["word"])
+        if cosine_similarity > highest_cosine_similarity:
+            highest_cosine_similarity = cosine_similarity
+            highest_cosine_similarity_task = t
+    return highest_cosine_similarity_task
+
+
+def num_of_tasks_in_sentence(agent_task_pairs: list, sentence_idx: int) -> int:
+    """
+    Counts the number of tasks in a sentence
+    Args:
+        agent_task_pairs (list): the list of agent-task pairs
+        sentence_idx (int): the index of the sentence
+    Returns:
+        int: the number of tasks in the sentence
+    """
+    num_of_tasks = 0
+    for pair in agent_task_pairs:
+        if pair["sentence_idx"] == sentence_idx:
+            num_of_tasks += 1
+    return num_of_tasks
+
+
+def add_task_ids(agent_task_pairs, sentences, loop_sentences):
+    """
+    Adds task ids to tasks that are not in a sentence with a loop keyword.
+    """
+
+    updated_agent_task_pairs = []
+    id = 0
+
+    for pair in agent_task_pairs:
+        task = pair["task"]
+        for sent in sentences:
+            if sent["start"] <= task["start"] <= sent["end"]:
+                if sent not in loop_sentences:
+                    pair["task"]["task_id"] = f"T{id}"
+                    id += 1
+
+        updated_agent_task_pairs.append(pair)
+
+    return updated_agent_task_pairs
+
+
+def add_loops(agent_task_pairs, sentences, loop_sentences):
+    """
+    Adds go_to fields to tasks that are in a sentence with a loop keyword.
+    """
+    updated_agent_task_pairs = []
+    previous_tasks = []
+
+    for pair in agent_task_pairs:
+
+        task = pair["task"]
+
+        for sent in sentences:
+
+            if sent["start"] <= task["start"] <= sent["end"]:
+
+                if sent in loop_sentences:
+                    highest_similarity_task = find_task_with_highest_similarity(
+                        task, previous_tasks
+                    )
+                    if highest_similarity_task is not None:
+                        pair["go_to"] = highest_similarity_task["task_id"]
+                        pair["start"] = pair["task"]["start"]
+                        del pair["task"]
+                        del pair["agent"]
+                else:
+                    previous_tasks.append(task)
+
+        updated_agent_task_pairs.append(pair)
+
+    return updated_agent_task_pairs
+
+
 def find_second_condition_index(dict_list):
     found_conditions = 0
     for i, d in enumerate(dict_list):
@@ -193,7 +329,14 @@ def find_second_condition_index(dict_list):
     return -1
 
 
-def find_first_task_in_next_sentence(dict_list):
+def find_first_task_in_next_sentence(dict_list: list) -> tuple:
+    """
+    Finds the first task in the next sentence
+    Args:
+        dict_list (list): the list of dictionaries
+    Returns:
+        tuple: the first task in the next sentence and its index
+    """
     if dict_list[0]["sentence_idx"] == dict_list[-1]["sentence_idx"]:
         return None, None
     cur_sentence_idx = dict_list[0]["sentence_idx"]
@@ -206,9 +349,11 @@ def find_first_task_in_next_sentence(dict_list):
 def create_bpmn_structure(input):
 
     if len(input) == 1:
-        return {"type": "task", "content": input[0]}
+        type = "task" if ("task" in input[0]) else "loop"
+        return {"type": type, "content": input[0]}
     elif isinstance(input, dict):
-        return {"type": "task", "content": input}
+        type = "task" if ("task" in input) else "loop"
+        return {"type": type, "content": input}
 
     first_task, idx = find_first_task_in_next_sentence(input)
 
@@ -238,10 +383,10 @@ def create_bpmn_structure(input):
                 ]
         else:
             if "condition" in input[1]:
+                # print(input)
+                second_condition_idx = find_second_condition_index(input)
 
-                idx = find_second_condition_index(input)
-
-                if idx == -1:
+                if second_condition_idx == -1:
                     return [
                         {"type": "task", "content": input[0]},
                         {
@@ -255,8 +400,8 @@ def create_bpmn_structure(input):
                         {
                             "type": "exclusive",
                             "children": [
-                                create_bpmn_structure(input[1:idx]),
-                                create_bpmn_structure(input[idx:]),
+                                create_bpmn_structure(input[1:second_condition_idx]),
+                                create_bpmn_structure(input[second_condition_idx:]),
                             ],
                         },
                     ]

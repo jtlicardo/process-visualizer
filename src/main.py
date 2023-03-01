@@ -81,6 +81,7 @@ def process_text(text):
     sents_data = get_sentence_data(text)
 
     parallel_sentences = find_sentences_with_parallel_keywords(sents_data)
+    loop_sentences = find_sentences_with_loop_keywords(sents_data)
 
     data = get_model_outputs(text)
 
@@ -95,6 +96,8 @@ def process_text(text):
         agent_task_pairs = add_conditions(conditions, agent_task_pairs, sents_data)
 
     agent_task_pairs = add_parallel(agent_task_pairs, sents_data, parallel_sentences)
+    agent_task_pairs = add_task_ids(agent_task_pairs, sents_data, loop_sentences)
+    agent_task_pairs = add_loops(agent_task_pairs, sents_data, loop_sentences)
     write_to_file("agent_task_pairs.txt", agent_task_pairs)
 
     end_of_blocks = detect_end_of_block(sents_data)
@@ -102,10 +105,20 @@ def process_text(text):
     if len(end_of_blocks) != 0:
 
         agent_task_pairs_before_end_of_block = [
-            x for x in agent_task_pairs if x["task"]["start"] < end_of_blocks[0]
+            x
+            for x in agent_task_pairs
+            if "task" in x
+            and x["task"]["start"] < end_of_blocks[0]
+            or "start" in x
+            and x["start"] < end_of_blocks[0]
         ]
         agent_task_pairs_after_end_of_block = [
-            x for x in agent_task_pairs if x["task"]["start"] >= end_of_blocks[0]
+            x
+            for x in agent_task_pairs
+            if "task" in x
+            and x["task"]["start"] >= end_of_blocks[0]
+            or "start" in x
+            and x["start"] >= end_of_blocks[0]
         ]
 
         output_1 = create_bpmn_structure(agent_task_pairs_before_end_of_block)
@@ -139,5 +152,12 @@ if __name__ == "__main__":
 
     text, notebook = parse_arguments()
     delete_files_in_folder("./output_logs")
-    output = process_text(text)
-    generate_graph(output, notebook)
+    try:
+        output = process_text(text)
+    except:
+        print("Error when processing text")
+        exit()
+    try:
+        generate_graph(output, notebook)
+    except:
+        print("Error when generating graph")
