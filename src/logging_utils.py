@@ -11,8 +11,6 @@ def write_to_file(filename, input):
 
     if not os.path.exists("./output_logs"):
         os.makedirs("./output_logs")
-    else:
-        delete_files_in_folder("./output_logs")
 
     if isinstance(input, str):
         with open("./output_logs/" + filename, "w") as file:

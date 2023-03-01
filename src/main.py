@@ -1,11 +1,12 @@
-from process_bpmn_data import *
-from logging_utils import write_to_file
-from graph_generator import GraphGenerator
 import argparse
+
 from coreference_resolution.coref import resolve_references
+from graph_generator import GraphGenerator
+from logging_utils import delete_files_in_folder, write_to_file
+from process_bpmn_data import *
 
 
-def generate_graph():
+def parse_arguments():
 
     parser = argparse.ArgumentParser()
 
@@ -33,6 +34,34 @@ def generate_graph():
         with open(args.file, "r") as f:
             text = f.read()
 
+    return (text, args.notebook)
+
+
+def get_model_outputs(text):
+
+    print("Getting model outputs...\n")
+    data = query({"inputs": text, "options": {"wait_for_model": True}})
+    write_to_file("model_output.txt", data)
+
+    if "error" in data:
+        print("Error when getting model outputs:", data["error"])
+        return None
+
+    return data
+
+
+def extract_all_entities(data):
+
+    print("Extracting entities...\n")
+    agents = extract_entities("AGENT", data)
+    tasks = extract_entities("TASK", data)
+    conditions = extract_entities("CONDITION", data)
+
+    return (agents, tasks, conditions)
+
+
+def process_text(text):
+
     print("\nInput text:\n" + text)
 
     if should_resolve_coreferences(text):
@@ -48,26 +77,20 @@ def generate_graph():
 
     parallel_sentences = find_sentences_with_parallel_keywords(sents_data)
 
-    print("Getting model outputs...\n")
-    data = query({"inputs": text, "options": {"wait_for_model": True}})
-    write_to_file("model_output.txt", data)
+    data = get_model_outputs(text)
 
-    if "error" in data:
-        print("Error when getting model outputs:", data["error"])
+    if not data:
         return
 
-    print("Extracting entities...\n")
-    agents = extract_entities("AGENT", data)
-    tasks = extract_entities("TASK", data)
-    conditions = extract_entities("CONDITION", data)
+    agents, tasks, conditions = extract_all_entities(data)
 
     agent_task_pairs = create_agent_task_pairs(agents, tasks, sents_data)
-    write_to_file("agent_task_pairs_0.txt", agent_task_pairs)
 
     if len(conditions) > 0:
         agent_task_pairs = add_conditions(conditions, agent_task_pairs, sents_data)
 
     agent_task_pairs = add_parallel(agent_task_pairs, sents_data, parallel_sentences)
+    write_to_file("agent_task_pairs.txt", agent_task_pairs)
 
     end_of_blocks = detect_end_of_block(sents_data)
 
@@ -92,20 +115,24 @@ def generate_graph():
         output = output_1 + output_2
 
     else:
-        write_to_file("agent_task_pairs_1.txt", agent_task_pairs)
         output = create_bpmn_structure(agent_task_pairs)
 
     write_to_file("final_output.txt", output)
 
-    if args.notebook:
-        bpmn = GraphGenerator(output, notebook=True)
-    else:
-        bpmn = GraphGenerator(output)
+    return output
 
+
+def generate_graph(input, notebook):
+
+    bpmn = GraphGenerator(input, notebook)
     print("Generating graph...\n")
     bpmn.generate_graph()
     bpmn.show()
 
 
 if __name__ == "__main__":
-    generate_graph()
+
+    text, notebook = parse_arguments()
+    delete_files_in_folder("./output_logs")
+    output = process_text(text)
+    generate_graph(output, notebook)
