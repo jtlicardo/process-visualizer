@@ -56,8 +56,15 @@ def extract_all_entities(data):
     agents = extract_entities("AGENT", data)
     tasks = extract_entities("TASK", data)
     conditions = extract_entities("CONDITION", data)
-
     return (agents, tasks, conditions)
+
+
+def get_sentence_data(text):
+
+    sents = get_sentences(text)
+    sents_data = create_sentence_data(sents)
+    write_to_file("sentences.txt", sents_data)
+    return sents_data
 
 
 def process_text(text):
@@ -71,9 +78,7 @@ def process_text(text):
     else:
         print("\nNo coreferences to resolve\n")
 
-    sents = get_sentences(text)
-    sents_data = create_sentence_data(sents)
-    write_to_file("sentences.txt", sents_data)
+    sents_data = get_sentence_data(text)
 
     parallel_sentences = find_sentences_with_parallel_keywords(sents_data)
 
