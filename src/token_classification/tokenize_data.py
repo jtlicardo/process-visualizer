@@ -1,5 +1,5 @@
-from transformers import AutoTokenizer
 from preprocess_data import load_jsonl, map_dataset
+from transformers import AutoTokenizer
 
 dataset = load_jsonl("annotated_data.jsonl")
 dataset = map_dataset(dataset)

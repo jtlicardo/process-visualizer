@@ -1,6 +1,7 @@
+from typing import Any, Callable, Dict, List, Set, Tuple
+
 import datasets
 from datasets import load_dataset
-from typing import Tuple, Dict, Set, Any, Callable, List
 
 
 def load_jsonl(filepath: str) -> datasets.DatasetDict:

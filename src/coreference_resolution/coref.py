@@ -1,6 +1,7 @@
+import os
+
 import spacy
 from spacy.tokens import SpanGroup
-import os
 
 
 def process_text(text):

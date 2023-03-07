@@ -1,6 +1,6 @@
 import evaluate
 import numpy as np
-from preprocess_data import load_jsonl, extract_labels, map_labels
+from preprocess_data import extract_labels, load_jsonl, map_labels
 
 dataset = load_jsonl("annotated_data.jsonl")
 labels = extract_labels(dataset)

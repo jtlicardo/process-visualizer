@@ -5,14 +5,9 @@ import evaluate
 from evaluation import compute_metrics
 from preprocess_data import extract_labels, load_jsonl, map_dataset, map_labels
 from tokenize_data import tokenize_and_align_labels
-from transformers import (
-    AutoModelForTokenClassification,
-    AutoTokenizer,
-    DataCollatorForTokenClassification,
-    EarlyStoppingCallback,
-    Trainer,
-    TrainingArguments,
-)
+from transformers import (AutoModelForTokenClassification, AutoTokenizer,
+                          DataCollatorForTokenClassification,
+                          EarlyStoppingCallback, Trainer, TrainingArguments)
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 

@@ -2,9 +2,13 @@ import graphviz
 
 
 class GraphGenerator:
-    def __init__(self, data, notebook=False):
+    def __init__(self, data, format=None, notebook=False):
 
         self.bpmn = graphviz.Digraph("bpmn_diagram", filename="bpmn.gv")
+        
+        if format == "jpeg":
+            self.bpmn.format = "jpeg"
+
         self.notebook = notebook
 
         self.data = data
@@ -452,3 +456,6 @@ class GraphGenerator:
             self.bpmn.save()
         else:
             self.bpmn.view()
+
+    def save_file(self):
+        self.bpmn.render(outfile="./src/bpmn.jpeg")

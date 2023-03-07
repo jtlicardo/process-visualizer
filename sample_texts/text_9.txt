@@ -1,1 +1,0 @@
-The customer fills out a loan application. Meanwhile, the manager decides whether to prepare additional questions. If yes, the manager prepares additional questions. If the decision is not to prepare, the manager waits for the customer. After that, the manager sends an email. After all those activities are finished, the customer sends the application.
