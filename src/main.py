@@ -1,6 +1,6 @@
 import argparse
 
-from process_bpmn_data import *
+from process_bpmn_data import generate_graph_pdf, process_text
 
 
 def parse_arguments():
