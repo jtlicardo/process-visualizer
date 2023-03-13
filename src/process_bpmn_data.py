@@ -1,13 +1,13 @@
 import json
 import os
 
+import openai
 import requests
 import spacy
-import openai
+from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer, util
 from spacy.matcher import Matcher
 
-from dotenv import load_dotenv
 from coreference_resolution.coref import resolve_references
 from graph_generator import GraphGenerator
 from logging_utils import clear_folder, write_to_file
