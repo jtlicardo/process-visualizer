@@ -2,7 +2,7 @@ import json
 import os
 
 
-def delete_files_in_folder(folder):
+def clear_folder(folder):
     for file in os.listdir(folder):
         os.remove(os.path.join(folder, file))
 

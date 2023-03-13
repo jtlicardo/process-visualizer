@@ -1,13 +1,19 @@
 import json
+import os
 
 import requests
 import spacy
+import openai
 from sentence_transformers import SentenceTransformer, util
 from spacy.matcher import Matcher
 
+from dotenv import load_dotenv
 from coreference_resolution.coref import resolve_references
 from graph_generator import GraphGenerator
-from logging_utils import delete_files_in_folder, write_to_file
+from logging_utils import clear_folder, write_to_file
+
+load_dotenv()
+openai.api_key = os.getenv("OPENAI_KEY")
 
 API_URL = "https://api-inference.huggingface.co/models/jtlicardo/bpmn-information-extraction-v2"
 
@@ -464,7 +470,7 @@ def get_sentence_data(text):
 
 def process_text(text):
 
-    delete_files_in_folder("./output_logs")
+    clear_folder("./output_logs")
 
     print("\nInput text:\n" + text)
 
