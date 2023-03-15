@@ -438,26 +438,36 @@ def handle_conditions(agent_task_pairs: list, conditions: list, sents_data: list
 
     return updated_agent_task_pairs
 
-def find_second_condition_index(dict_list):
+def find_second_condition_index(dict_list: list) -> int:
+    """
+    Finds the second condition that has the same exclusive gateway id.
+    If there is no second condition that has the same exclusive gateway id, returns -1.
+    Args:
+        dict_list (list): the list of dictionaries
+    Returns:
+        int: the index of the second condition that has the same exclusive gateway id
+    """
+
     found_conditions = 0
     for i, d in enumerate(dict_list):
         if "condition" in d:
-            found_conditions += 1
-            if found_conditions == 2:
-                return i
+            if d["condition"]["exclusive_gateway_id"] == dict_list[1]["condition"]["exclusive_gateway_id"]:
+                found_conditions += 1
+                if found_conditions == 2:
+                    return i
     return -1
 
 
 def find_first_task_in_next_sentence(dict_list: list) -> tuple:
     """
-    Finds the first task in the next sentence
+    Finds the first task in the next sentence. If there is no next sentence, returns a tuple of None and None.
     Args:
         dict_list (list): the list of dictionaries
     Returns:
         tuple: the first task in the next sentence and its index
     """
     if dict_list[0]["sentence_idx"] == dict_list[-1]["sentence_idx"]:
-        return None, None
+        return (None, None)
     cur_sentence_idx = dict_list[0]["sentence_idx"]
     next_sentence_idx = cur_sentence_idx + 1
     for i, x in enumerate(dict_list):
