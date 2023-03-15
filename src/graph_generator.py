@@ -260,22 +260,33 @@ class GraphGenerator:
             if (
                 previous_element["type"] == "exclusive"
                 or previous_element["type"] == "parallel"
-            ) and "has_loops" not in previous_element:
-                self.connect(
-                    f"{previous_element['id']}_E",
-                    f"{element['id']}",
-                )
-            elif (
-                previous_element["type"] == "exclusive"
-                or previous_element["type"] == "parallel"
-            ) and previous_element["has_loops"] is True:
-                last_task = self.get_last_task_in_gateway_in_path_with_no_loops(
-                    previous_element
-                )
-                self.connect(
-                    f"{last_task['id']}",
-                    f"{element['id']}",
-                )
+            ):
+                if "has_loops" not in previous_element:
+                    if "single_condition" not in previous_element:
+                        self.connect(
+                            f"{previous_element['id']}_E",
+                            f"{element['id']}",
+                        )
+                    else:
+                        last_child = previous_element["children"][0][-1]
+                        if last_child["type"] != "task":
+                            self.connect(
+                                f"{last_child['id']}_E",
+                                f"{element['id']}",
+                            )
+                        else:
+                            self.connect(
+                                f"{last_child['id']}",
+                                f"{element['id']}",
+                            )
+                else:
+                    last_task = self.get_last_task_in_gateway_in_path_with_no_loops(
+                        previous_element
+                    )
+                    self.connect(
+                        f"{last_task['id']}",
+                        f"{element['id']}",
+                    )
 
         if last:
             if (
@@ -459,3 +470,11 @@ class GraphGenerator:
 
     def save_file(self):
         self.bpmn.render(outfile="./src/bpmn.jpeg")
+
+import json
+with open("output_logs/final_output.txt", 'r') as file:
+    content = file.read()
+data = json.loads(content)
+bpmn = GraphGenerator(data, notebook=False)
+bpmn.generate_graph()
+bpmn.show()

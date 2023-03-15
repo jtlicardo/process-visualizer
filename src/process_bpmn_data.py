@@ -1,19 +1,15 @@
 import json
-import os
 
-import openai
 import requests
 import spacy
-from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer, util
 from spacy.matcher import Matcher
 
+import openai_prompts as prompts
 from coreference_resolution.coref import resolve_references
 from graph_generator import GraphGenerator
 from logging_utils import clear_folder, write_to_file
 
-load_dotenv()
-openai.api_key = os.getenv("OPENAI_KEY")
 
 API_URL = "https://api-inference.huggingface.co/models/jtlicardo/bpmn-information-extraction-v2"
 
@@ -92,9 +88,19 @@ def create_agent_task_pairs(agents, tasks, sentences):
     return agent_task_pairs
 
 
-def add_conditions(conditions, agent_task_pairs, sentences):
+def add_conditions(conditions: list, agent_task_pairs: list, sentences: list) -> list:
+    """
+    Adds conditions and condition ids to agent-task pairs
+    Args:
+        conditions (list): a list of conditions
+        agent_task_pairs (list): a list of agent-task pairs
+        sentences (list): a list of sentences
+    Returns:
+        list: a list of agent-task pairs with conditions and condition ids
+    """
 
     updated_agent_task_pairs = []
+    condition_id = 0
 
     for pair in agent_task_pairs:
 
@@ -107,6 +113,8 @@ def add_conditions(conditions, agent_task_pairs, sentences):
                 for condition in conditions:
                     if sent["start"] <= condition["start"] <= sent["end"]:
                         pair["condition"] = condition
+                        pair["condition"]["condition_id"] = f"C{condition_id}"
+                        condition_id += 1
                         break
 
         updated_agent_task_pairs.append(pair)
@@ -330,26 +338,136 @@ def add_loops(agent_task_pairs, sentences, loop_sentences):
     return updated_agent_task_pairs
 
 
-def find_second_condition_index(dict_list):
+def get_conditions(agent_task_pairs: list) -> list:
+    """
+    Gets the conditions from the agent-task pairs.
+    Args:
+        agent_task_pairs (list): the list of agent-task pairs
+    Returns:
+        list: the list of conditions
+    """
+    return [pair["condition"] for pair in agent_task_pairs if "condition" in pair]
+
+def check_if_conditions_in_same_gateway(process_description: str, conditions: list) -> list:
+    """
+    Checks whether conditions belong to the same exclusive gateway.
+    Args:
+        process_description (str): the process description
+        conditions (list): the list of conditions
+    Returns:
+        list: list of dictionaries, each dictionary contains the condition ids and the result of the check
+    """
+
+    result = []
+    obj = {}
+
+    for i, condition in enumerate(conditions):
+        if i < len(conditions) - 1:
+            condition_pair = f"'{condition['word']}' and '{conditions[i+1]['word']}'"
+            obj = {
+                "condition_1": condition["condition_id"],
+                "condition_2": conditions[i+1]["condition_id"],
+            }
+            response = prompts.same_exclusive_gateway(process_description, condition_pair)
+            obj["result"]  = response["content"]
+            result.append(obj)
+    
+    return result
+
+def assign_exclusive_gateway_ids(results: list) -> dict:
+    """
+    Assigns exclusive gateway ids to each condition.
+    Args:
+        results (list): the list of dictionaries, each dictionary contains the condition ids and the result of the check
+    Returns:
+        dict: dictionary with condition ids as keys and exclusive gateway ids as values
+    """
+    
+    conditions = {}
+    id = 0
+    
+    for result in results:
+        if result["result"] == "TRUE":
+            if result["condition_1"] not in conditions:
+                conditions[result["condition_1"]] = f"EG{id}"
+            conditions[result["condition_2"]] = f"EG{id}"
+        else:
+            if result["condition_1"] not in conditions:
+                conditions[result["condition_1"]] = f"EG{id}"
+            conditions[result["condition_2"]] = f"EG{id + 1}"
+        id += 1
+    
+    return conditions
+
+def add_exclusive_gateway_ids(agent_task_pairs: list, conditions: dict):
+    """
+    Adds exclusive gateway ids to agent-task pairs
+    Args:
+        agent_task_pairs (list): the list of agent-task pairs
+        conditions (dict): dictionary with condition ids as keys and exclusive gateway ids as values
+    Returns:
+        list: the list of agent-task pairs with exclusive gateway ids
+    """
+
+    updated_agent_task_pairs = []
+    
+    for pair in agent_task_pairs:
+        if "condition" in pair:
+            pair["condition"]["exclusive_gateway_id"] = conditions[pair["condition"]["condition_id"]]
+        updated_agent_task_pairs.append(pair)
+    
+    return updated_agent_task_pairs            
+
+def handle_conditions(agent_task_pairs: list, conditions: list, sents_data: list, process_desc: str) -> list:
+    """
+    Adds conditions and exclusive gateway ids to agent-task pairs.
+    Args:
+        agent_task_pairs (list): the list of agent-task pairs
+        conditions (list): the list of conditions
+        sents_data (list): the sentence data
+        process_desc (str): the process description
+    Returns:
+        list: the list of agent-task pairs with conditions and exclusive gateway ids
+    """
+
+    updated_agent_task_pairs = add_conditions(conditions, agent_task_pairs, sents_data)
+    conditions_with_ids = get_conditions(agent_task_pairs)
+    result = check_if_conditions_in_same_gateway(process_desc, conditions_with_ids)
+    conditions_with_exclusive_gateway_ids = assign_exclusive_gateway_ids(result)
+    updated_agent_task_pairs = add_exclusive_gateway_ids(updated_agent_task_pairs, conditions_with_exclusive_gateway_ids)
+
+    return updated_agent_task_pairs
+
+def find_second_condition_index(dict_list: list) -> int:
+    """
+    Finds the second condition that has the same exclusive gateway id.
+    If there is no second condition that has the same exclusive gateway id, returns -1.
+    Args:
+        dict_list (list): the list of dictionaries
+    Returns:
+        int: the index of the second condition that has the same exclusive gateway id
+    """
+
     found_conditions = 0
     for i, d in enumerate(dict_list):
         if "condition" in d:
-            found_conditions += 1
-            if found_conditions == 2:
-                return i
+            if d["condition"]["exclusive_gateway_id"] == dict_list[1]["condition"]["exclusive_gateway_id"]:
+                found_conditions += 1
+                if found_conditions == 2:
+                    return i
     return -1
 
 
 def find_first_task_in_next_sentence(dict_list: list) -> tuple:
     """
-    Finds the first task in the next sentence
+    Finds the first task in the next sentence. If there is no next sentence, returns a tuple of None and None.
     Args:
         dict_list (list): the list of dictionaries
     Returns:
         tuple: the first task in the next sentence and its index
     """
     if dict_list[0]["sentence_idx"] == dict_list[-1]["sentence_idx"]:
-        return None, None
+        return (None, None)
     cur_sentence_idx = dict_list[0]["sentence_idx"]
     next_sentence_idx = cur_sentence_idx + 1
     for i, x in enumerate(dict_list):
@@ -394,7 +512,6 @@ def create_bpmn_structure(input):
                 ]
         else:
             if "condition" in input[1]:
-                # print(input)
                 second_condition_idx = find_second_condition_index(input)
 
                 if second_condition_idx == -1:
@@ -496,7 +613,8 @@ def process_text(text):
     agent_task_pairs = create_agent_task_pairs(agents, tasks, sents_data)
 
     if len(conditions) > 0:
-        agent_task_pairs = add_conditions(conditions, agent_task_pairs, sents_data)
+        agent_task_pairs = handle_conditions(agent_task_pairs, conditions, sents_data, text)
+
 
     agent_task_pairs = add_parallel(agent_task_pairs, sents_data, parallel_sentences)
     agent_task_pairs = add_task_ids(agent_task_pairs, sents_data, loop_sentences)
