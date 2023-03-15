@@ -6,7 +6,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from supabase import create_client
 
-from logging_utils import delete_files_in_folder
+from logging_utils import clear_folder
 from process_bpmn_data import generate_graph_image, process_text
 
 DEBUG = True
@@ -25,7 +25,7 @@ supabase = create_client(url, key)
 def receive_text_input():
     data = request.get_json()
     text = data["text"]
-    delete_files_in_folder("./output_logs")
+    clear_folder("./output_logs")
     try:
         output = process_text(text)
     except:

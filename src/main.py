@@ -38,12 +38,6 @@ if __name__ == "__main__":
 
     text, notebook = parse_arguments()
     
-    try:
-        output = process_text(text)
-    except:
-        print("Error when processing text")
-        exit()
-    try:
-        generate_graph_pdf(output, notebook)
-    except:
-        print("Error when generating graph")
+    output = process_text(text)
+
+    generate_graph_pdf(output, notebook)
