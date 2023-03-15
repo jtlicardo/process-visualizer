@@ -5,7 +5,7 @@ class GraphGenerator:
     def __init__(self, data, format=None, notebook=False):
 
         self.bpmn = graphviz.Digraph("bpmn_diagram", filename="bpmn.gv")
-        
+
         if format == "jpeg":
             self.bpmn.format = "jpeg"
 
@@ -155,6 +155,20 @@ class GraphGenerator:
                     return True
         return False
 
+    def check_for_end_events_in_gateway(self, gateway):
+        assert isinstance(gateway, dict)
+        for child in gateway["children"]:
+            if isinstance(child, list):
+                for element in child:
+                    if element["type"] == "task":
+                        if "process_end_event" in element["content"]:
+                            return True
+            else:
+                if child["type"] == "task":
+                    if "process_end_event" in child["content"]:
+                        return True
+        return False
+
     def check_for_loops_in_list(self, lst):
         assert isinstance(lst, list)
         for element in lst:
@@ -207,7 +221,11 @@ class GraphGenerator:
 
             self.bpmn.node(name=f"{type}G{counter}_S", label=label)
 
-            if "single_condition" not in element and "has_loops" not in element:
+            if (
+                "single_condition" not in element
+                and "has_loops" not in element
+                and "has_end_events" not in element
+            ):
                 self.bpmn.node(name=f"{type}G{counter}_E", label=label)
 
             element["id"] = f"{type}G{counter}"
@@ -262,13 +280,19 @@ class GraphGenerator:
                 or previous_element["type"] == "parallel"
             ):
                 if "has_loops" not in previous_element:
-                    if "single_condition" not in previous_element:
+                    if (
+                        "single_condition" not in previous_element
+                        and "has_end_events" not in previous_element
+                    ):
                         self.connect(
                             f"{previous_element['id']}_E",
                             f"{element['id']}",
                         )
                     else:
-                        last_child = previous_element["children"][0][-1]
+                        try:
+                            last_child = previous_element["children"][0][-1]
+                        except KeyError:
+                            last_child = previous_element["children"][-1][-1]
                         if last_child["type"] != "task":
                             self.connect(
                                 f"{last_child['id']}_E",
@@ -293,6 +317,7 @@ class GraphGenerator:
                 parent_gateway is not None
                 and "single_condition" not in parent_gateway
                 and "has_loops" not in parent_gateway
+                and "process_end_event" not in element["content"]
             ):
                 self.connect(
                     f"{element['id']}",
@@ -354,6 +379,8 @@ class GraphGenerator:
             if num == 1:
                 element["children"] = [element["children"]]
                 element["single_condition"] = True
+            if self.check_for_end_events_in_gateway(element):
+                element["has_end_events"] = True
 
         if self.check_for_loops_in_gateway(element):
             element["has_loops"] = True
@@ -416,7 +443,11 @@ class GraphGenerator:
 
         if parent_gateway is not None:
             assert "id" in parent_gateway
-            if last and "single_condition" not in parent_gateway:
+            if (
+                last
+                and "single_condition" not in parent_gateway
+                and "has_end_events" not in parent_gateway
+            ):
                 self.connect(
                     f"{element['id']}_E",
                     f"{parent_gateway['id']}_E",
@@ -471,10 +502,14 @@ class GraphGenerator:
     def save_file(self):
         self.bpmn.render(outfile="./src/bpmn.jpeg")
 
-import json
-with open("output_logs/final_output.txt", 'r') as file:
-    content = file.read()
-data = json.loads(content)
-bpmn = GraphGenerator(data, notebook=False)
-bpmn.generate_graph()
-bpmn.show()
+
+if __name__ == "__main__":
+    # Used for debugging purposes
+    import json
+
+    with open("output_logs/final_output.txt", "r") as file:
+        content = file.read()
+    data = json.loads(content)
+    bpmn = GraphGenerator(data, notebook=False)
+    bpmn.generate_graph()
+    bpmn.show()
