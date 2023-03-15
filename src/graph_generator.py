@@ -160,11 +160,13 @@ class GraphGenerator:
         for child in gateway["children"]:
             if isinstance(child, list):
                 for element in child:
-                    if "process_end_event" in element["content"]:
-                        return True
+                    if element["type"] == "task":
+                        if "process_end_event" in element["content"]:
+                            return True
             else:
-                if "process_end_event" in child["content"]:
-                    return True
+                if child["type"] == "task":
+                    if "process_end_event" in child["content"]:
+                        return True
         return False
 
     def check_for_loops_in_list(self, lst):
@@ -377,12 +379,11 @@ class GraphGenerator:
             if num == 1:
                 element["children"] = [element["children"]]
                 element["single_condition"] = True
+            if self.check_for_end_events_in_gateway(element):
+                element["has_end_events"] = True
 
         if self.check_for_loops_in_gateway(element):
             element["has_loops"] = True
-
-        if self.check_for_end_events_in_gateway(element):
-            element["has_end_events"] = True
 
         self.create_node(
             type="P", element=element
