@@ -471,10 +471,12 @@ class GraphGenerator:
     def save_file(self):
         self.bpmn.render(outfile="./src/bpmn.jpeg")
 
-import json
-with open("output_logs/final_output.txt", 'r') as file:
-    content = file.read()
-data = json.loads(content)
-bpmn = GraphGenerator(data, notebook=False)
-bpmn.generate_graph()
-bpmn.show()
+if __name__ == "__main__":
+    # Used for debugging purposes
+    import json
+    with open("output_logs/final_output.txt", 'r') as file:
+        content = file.read()
+    data = json.loads(content)
+    bpmn = GraphGenerator(data, notebook=False)
+    bpmn.generate_graph()
+    bpmn.show()
