@@ -11,7 +11,10 @@ from graph_generator import GraphGenerator
 from logging_utils import clear_folder, write_to_file
 
 
-API_URL = "https://api-inference.huggingface.co/models/jtlicardo/bpmn-information-extraction-v2"
+BPMN_INFORMATION_EXTRACTION_ENDPOINT = "https://api-inference.huggingface.co/models/jtlicardo/bpmn-information-extraction-v2"
+ZERO_SHOT_CLASSIFICATION_ENDPOINT = (
+    "https://api-inference.huggingface.co/models/facebook/bart-large-mnli"
+)
 
 
 def get_sentences(text):
@@ -36,10 +39,82 @@ def create_sentence_data(sentences):
     return sentence_data
 
 
-def query(payload):
+def query(payload, endpoint):
     data = json.dumps(payload)
-    response = requests.request("POST", API_URL, data=data)
+    response = requests.request("POST", endpoint, data=data)
     return json.loads(response.content.decode("utf-8"))
+
+
+def extract_bpmn_data(text: str) -> list:
+    """
+    Extracts BPMN data from the process description by calling the model endpoint hosted on Hugging Face.
+    Args:
+        text (str): the process description
+    Returns:
+        list: model output
+    """
+
+    print("Extracting BPMN data...\n")
+    data = query(
+        {"inputs": text, "options": {"wait_for_model": True}},
+        BPMN_INFORMATION_EXTRACTION_ENDPOINT,
+    )
+    write_to_file("model_output.txt", data)
+
+    if "error" in data:
+        print("Error when extracting BPMN data:", data["error"])
+        return None
+
+    return data
+
+
+def classify_process_info(text: str) -> dict:
+    """
+    Classifies a PROCESS_INFO entity by calling the model endpoint hosted on Hugging Face.
+    Args:
+        text (str): sequence of text classified as process info
+    Returns:
+        dict: model output containing the following keys: "sequence", "labels", "scores"
+    """
+
+    data = query(
+        {
+            "inputs": text,
+            "parameters": {"candidate_labels": ["process start", "process end"]},
+            "options": {"wait_for_model": True},
+        },
+        ZERO_SHOT_CLASSIFICATION_ENDPOINT,
+    )
+
+    if "error" in data:
+        print("Error when classifying PROCESS_INFO entity:", data["error"])
+        return None
+
+    return data
+
+
+def batch_classify_process_info(process_info_entities: list):
+    """
+    Classifies a list of PROCESS_INFO entities into PROCESS_START or PROCESS_END.
+    Args:
+        process_info_entities (list): a list of PROCESS_INFO entities
+    Returns:
+        list: a list of PROCESS_INFO entities with the entity_group key updated
+    """
+
+    updated_entities = []
+
+    print("Classifying PROCESS_INFO entities...\n")
+
+    for entity in process_info_entities:
+        text = entity["word"]
+        data = classify_process_info(text)
+        entity["entity_group"] = (
+            "PROCESS_START" if data["labels"][0] == "process start" else "PROCESS_END"
+        )
+        updated_entities.append(entity)
+
+    return updated_entities
 
 
 def extract_entities(type: str, data: list) -> list:
@@ -84,6 +159,40 @@ def create_agent_task_pairs(agents, tasks, sentences):
                         "sentence_idx": task["index"],
                     }
                 )
+
+    return agent_task_pairs
+
+
+def add_process_end_events(
+    agent_task_pairs: list, sentences: list, process_info_entities: list
+) -> list:
+    """
+    Adds process end events to agent-task pairs
+    Args:
+        agent_task_pairs (list): a list of agent-task pairs
+        sentences (list): list of sentence data
+        process_info_entities (list): list of process info entities
+    Returns:
+        list: a list of agent-task pairs with process end events
+    """
+
+    process_end_events = []
+
+    for entity in process_info_entities:
+        if entity["entity_group"] == "PROCESS_END":
+            for sent in sentences:
+                if sent["start"] <= entity["start"] <= sent["end"]:
+                    process_end_events.append(
+                        {
+                            "process_end_event": entity,
+                            "sentence_idx": sentences.index(sent),
+                        }
+                    )
+
+    for pair in agent_task_pairs:
+        for event in process_end_events:
+            if pair["sentence_idx"] == event["sentence_idx"]:
+                pair["process_end_event"] = event["process_end_event"]
 
     return agent_task_pairs
 
@@ -348,7 +457,10 @@ def get_conditions(agent_task_pairs: list) -> list:
     """
     return [pair["condition"] for pair in agent_task_pairs if "condition" in pair]
 
-def check_if_conditions_in_same_gateway(process_description: str, conditions: list) -> list:
+
+def check_if_conditions_in_same_gateway(
+    process_description: str, conditions: list
+) -> list:
     """
     Checks whether conditions belong to the same exclusive gateway.
     Args:
@@ -366,13 +478,16 @@ def check_if_conditions_in_same_gateway(process_description: str, conditions: li
             condition_pair = f"'{condition['word']}' and '{conditions[i+1]['word']}'"
             obj = {
                 "condition_1": condition["condition_id"],
-                "condition_2": conditions[i+1]["condition_id"],
+                "condition_2": conditions[i + 1]["condition_id"],
             }
-            response = prompts.same_exclusive_gateway(process_description, condition_pair)
-            obj["result"]  = response["content"]
+            response = prompts.same_exclusive_gateway(
+                process_description, condition_pair
+            )
+            obj["result"] = response["content"]
             result.append(obj)
-    
+
     return result
+
 
 def assign_exclusive_gateway_ids(results: list) -> dict:
     """
@@ -382,10 +497,10 @@ def assign_exclusive_gateway_ids(results: list) -> dict:
     Returns:
         dict: dictionary with condition ids as keys and exclusive gateway ids as values
     """
-    
+
     conditions = {}
     id = 0
-    
+
     for result in results:
         if result["result"] == "TRUE":
             if result["condition_1"] not in conditions:
@@ -396,8 +511,9 @@ def assign_exclusive_gateway_ids(results: list) -> dict:
                 conditions[result["condition_1"]] = f"EG{id}"
             conditions[result["condition_2"]] = f"EG{id + 1}"
         id += 1
-    
+
     return conditions
+
 
 def add_exclusive_gateway_ids(agent_task_pairs: list, conditions: dict):
     """
@@ -410,15 +526,20 @@ def add_exclusive_gateway_ids(agent_task_pairs: list, conditions: dict):
     """
 
     updated_agent_task_pairs = []
-    
+
     for pair in agent_task_pairs:
         if "condition" in pair:
-            pair["condition"]["exclusive_gateway_id"] = conditions[pair["condition"]["condition_id"]]
+            pair["condition"]["exclusive_gateway_id"] = conditions[
+                pair["condition"]["condition_id"]
+            ]
         updated_agent_task_pairs.append(pair)
-    
-    return updated_agent_task_pairs            
 
-def handle_conditions(agent_task_pairs: list, conditions: list, sents_data: list, process_desc: str) -> list:
+    return updated_agent_task_pairs
+
+
+def handle_conditions(
+    agent_task_pairs: list, conditions: list, sents_data: list, process_desc: str
+) -> list:
     """
     Adds conditions and exclusive gateway ids to agent-task pairs.
     Args:
@@ -434,9 +555,12 @@ def handle_conditions(agent_task_pairs: list, conditions: list, sents_data: list
     conditions_with_ids = get_conditions(agent_task_pairs)
     result = check_if_conditions_in_same_gateway(process_desc, conditions_with_ids)
     conditions_with_exclusive_gateway_ids = assign_exclusive_gateway_ids(result)
-    updated_agent_task_pairs = add_exclusive_gateway_ids(updated_agent_task_pairs, conditions_with_exclusive_gateway_ids)
+    updated_agent_task_pairs = add_exclusive_gateway_ids(
+        updated_agent_task_pairs, conditions_with_exclusive_gateway_ids
+    )
 
     return updated_agent_task_pairs
+
 
 def find_second_condition_index(dict_list: list) -> int:
     """
@@ -451,7 +575,10 @@ def find_second_condition_index(dict_list: list) -> int:
     found_conditions = 0
     for i, d in enumerate(dict_list):
         if "condition" in d:
-            if d["condition"]["exclusive_gateway_id"] == dict_list[1]["condition"]["exclusive_gateway_id"]:
+            if (
+                d["condition"]["exclusive_gateway_id"]
+                == dict_list[1]["condition"]["exclusive_gateway_id"]
+            ):
                 found_conditions += 1
                 if found_conditions == 2:
                     return i
@@ -555,26 +682,22 @@ def should_resolve_coreferences(text):
             return True
     return False
 
-def get_model_outputs(text):
 
-    print("Getting model outputs...\n")
-    data = query({"inputs": text, "options": {"wait_for_model": True}})
-    write_to_file("model_output.txt", data)
-
-    if "error" in data:
-        print("Error when getting model outputs:", data["error"])
-        return None
-
-    return data
-
-
-def extract_all_entities(data):
+def extract_all_entities(data: list) -> tuple:
+    """
+    Extracts all entities from the model output.
+    Args:
+        data (list): model output
+    Returns:
+        tuple: a tuple of lists containing the extracted entities
+    """
 
     print("Extracting entities...\n")
     agents = extract_entities("AGENT", data)
     tasks = extract_entities("TASK", data)
     conditions = extract_entities("CONDITION", data)
-    return (agents, tasks, conditions)
+    process_info = extract_entities("PROCESS_INFO", data)
+    return (agents, tasks, conditions, process_info)
 
 
 def get_sentence_data(text):
@@ -603,22 +726,30 @@ def process_text(text):
     parallel_sentences = find_sentences_with_parallel_keywords(sents_data)
     loop_sentences = find_sentences_with_loop_keywords(sents_data)
 
-    data = get_model_outputs(text)
+    data = extract_bpmn_data(text)
 
     if not data:
         return
 
-    agents, tasks, conditions = extract_all_entities(data)
+    agents, tasks, conditions, process_info = extract_all_entities(data)
 
     agent_task_pairs = create_agent_task_pairs(agents, tasks, sents_data)
 
     if len(conditions) > 0:
-        agent_task_pairs = handle_conditions(agent_task_pairs, conditions, sents_data, text)
+        agent_task_pairs = handle_conditions(
+            agent_task_pairs, conditions, sents_data, text
+        )
 
+    if len(process_info) > 0:
+        process_info = batch_classify_process_info(process_info)
+        agent_task_pairs = add_process_end_events(
+            agent_task_pairs, sents_data, process_info
+        )
 
     agent_task_pairs = add_parallel(agent_task_pairs, sents_data, parallel_sentences)
     agent_task_pairs = add_task_ids(agent_task_pairs, sents_data, loop_sentences)
     agent_task_pairs = add_loops(agent_task_pairs, sents_data, loop_sentences)
+
     write_to_file("agent_task_pairs.txt", agent_task_pairs)
 
     end_of_blocks = detect_end_of_block(sents_data)
@@ -660,12 +791,14 @@ def process_text(text):
 
     return output
 
+
 def generate_graph_pdf(input, notebook):
 
     bpmn = GraphGenerator(input, notebook=notebook)
     print("Generating graph...\n")
     bpmn.generate_graph()
     bpmn.show()
+
 
 def generate_graph_image(input):
     bpmn = GraphGenerator(input, format="jpeg", notebook=False)
