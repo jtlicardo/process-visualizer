@@ -17,24 +17,37 @@ ZERO_SHOT_CLASSIFICATION_ENDPOINT = (
 )
 
 
-def get_sentences(text):
+def get_sentences(text: str) -> list:
+    """
+    Creates a list of sentences from a given text.
+    Args:
+        text (str): the text to split into sentences
+    Returns:
+        list: a list of sentences
+    """
+
     nlp = spacy.load("en_core_web_sm")
     doc = nlp(text)
     sentences = [str(i) for i in list(doc.sents)]
     return sentences
 
 
-def create_sentence_data(sentences):
+def create_sentence_data(sentences: list) -> list:
+    """
+    Adds start and end indices to each sentence in a list of sentences.
+    Args:
+        sentences (list): a list of sentences
+    Returns:
+        list: a list of sentence data
+    """
 
-    counter = 0
+    start = 0
     sentence_data = []
 
     for sent in sentences:
-        start = counter
-        end = counter + len(sent)
-        counter += len(sent) + 1
-        sentence = {"sentence": sent, "start": start, "end": end}
-        sentence_data.append(sentence)
+        end = start + len(sent)
+        sentence_data.append({"sentence": sent, "start": start, "end": end})
+        start += len(sent) + 1
 
     return sentence_data
 
