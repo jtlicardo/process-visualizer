@@ -32,14 +32,16 @@ def get_sentences(text: str) -> list:
     return sentences
 
 
-def create_sentence_data(sentences: list) -> list:
+def create_sentence_data(text: str) -> list:
     """
-    Adds start and end indices to each sentence in a list of sentences.
+    Creates a list of dictionaries containing the sentence data (sentence, start index, end index)
     Args:
-        sentences (list): a list of sentences
+        text (str): the input text
     Returns:
-        list: a list of sentence data
+        list: a list of dictionaries containing the sentence data
     """
+
+    sentences = get_sentences(text)
 
     start = 0
     sentence_data = []
@@ -49,6 +51,7 @@ def create_sentence_data(sentences: list) -> list:
         sentence_data.append({"sentence": sent, "start": start, "end": end})
         start += len(sent) + 1
 
+    write_to_file("sentence_data.txt", sentence_data)
     return sentence_data
 
 
@@ -713,14 +716,6 @@ def extract_all_entities(data: list) -> tuple:
     return (agents, tasks, conditions, process_info)
 
 
-def get_sentence_data(text):
-
-    sents = get_sentences(text)
-    sents_data = create_sentence_data(sents)
-    write_to_file("sentences.txt", sents_data)
-    return sents_data
-
-
 def process_text(text):
 
     clear_folder("./output_logs")
@@ -734,7 +729,7 @@ def process_text(text):
     else:
         print("\nNo coreferences to resolve\n")
 
-    sents_data = get_sentence_data(text)
+    sents_data = create_sentence_data(text)
 
     parallel_sentences = find_sentences_with_parallel_keywords(sents_data)
     loop_sentences = find_sentences_with_loop_keywords(sents_data)
