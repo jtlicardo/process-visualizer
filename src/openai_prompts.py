@@ -88,76 +88,68 @@ def number_of_parallel_paths(process_description: str) -> str:
     return completion.choices[0].message["content"]
 
 
-mark_up_3_parallel_paths_template = """
-You will be given a description of a process with 3 parallel paths. Your task is to add [S] at the start of each parallel path and [E] at the end of each parallel path. Add the [S] and [E] markers inline with the rest of the text.
+extract_3_parallel_paths_template = """
+You will be given a description of a process with 3 parallel paths. Extract the text of the parallel paths.
 
-Original process description: The process begins by X doing Y. After that, the process splits into 3 parallel paths. Path 1 involves A and B. Path 2 involves C and D. Path 3 involves E and F. Once all these 3 activities are finished, A does B and the process ends.
-Marked-up process description: The process begins by X doing Y. After that, the process splits into 3 parallel paths. [S] Path 1 involves A and B. [E] [S] Path 2 involves C and D. [E] [S] Path 3 involves E and F. [E] Once all these 3 activities are finished, A does B and the process ends.
+###
 
-Process description: {}
-Marked-up process description:
+Process: The process begins by X doing Y. After that, the process splits into 3 parallel paths. Path 1 involves A and B. Path 2 involves C and D. Path 3 involves E and F. Once all these 3 activities are finished, A does B and the process ends.
+Paths: Path 1 involves A and B || Path 2 involves C and D || Path 3 involves E and F
+
+Process: {}
+Paths:
 """
 
 
-def mark_up_3_parallel_paths(process_description: str) -> str:
+def extract_3_parallel_paths(process_description: str) -> str:
     """
-    Marks up the given process description so that the parallel paths can be easily identified.
+    Extracts the text of the parallel paths in the given process.
     Args:
         process_description (str): A description of the business process
     Returns:
-        str: The response from the GPT-3.5 model (the marked-up process description)
+        str: The response from the GPT-3.5 model
     """
-    print("Marking up 3 parallel paths")
 
-    user_msg = mark_up_3_parallel_paths_template.format(process_description)
+    prompt = extract_3_parallel_paths_template.format(process_description)
 
-    completion = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": SYSTEM_MSG},
-            {"role": "user", "content": user_msg},
-        ],
-        temperature=0,
-        max_tokens=256,
+    completion = openai.Completion.create(
+        model="text-davinci-003", prompt=prompt, max_tokens=128, temperature=0
     )
 
-    print("Parallel paths:", completion.choices[0].message, "\n")
-    return completion.choices[0].message["content"]
+    print("Parallel paths:", completion.choices[0], "\n")
+    return completion.choices[0]["text"]
 
 
-mark_up_2_parallel_paths_template = """
-You will be given a description of a process with 2 parallel paths. Your task is to add [S] at the start of each parallel path and [E] at the end of each parallel path. Add the [S] and [E] markers inline with the rest of the text.
+extract_2_parallel_paths_template = """
+Extract the text of 2 parallel paths in the following format: <path> || <path>
 
-Original process description: John does task1 and John does task2 at the same time.
-Marked-up process description: [S] John does task1 [E] and [S] John does task2 [E] at the same time.
-Original process description: The mailman delivers the mail and greets people. At the same time, the milkman delivers milk.
-Marked-up process description: [S] The mailman delivers the mail and greets people. [E] [S] At the same time, the milkman delivers milk. [E] 
-Original process description: {}
-Marked-up process description:
+###
+
+Process: John does A and John does Bat the same time.
+Paths: John does A || John does B
+Process: After that, he delivers the mail and greets people. At the same time, the milkman delivers milk.
+Paths: he delivers the mail and greets people || the milkman delivers milk
+Process: The boss decides if yes or no. If yes, there will be two activities happening in parallel: A does X, while the boss does Y. If not, A will do Z.
+Paths: A does X || the boss does Y
+Process: {}
+Paths:
 """
 
 
-def mark_up_2_parallel_paths(process_description: str) -> str:
+def extract_2_parallel_paths(process_description: str) -> str:
     """
-    Marks up the given process description so that the parallel paths can be easily identified.
+    Extracts the text of the parallel paths in the given process.
     Args:
         process_description (str): A description of the business process
     Returns:
-        str: The response from the GPT-3.5 model (the marked-up process description)
+        str: The response from the GPT-3.5 model
     """
-    print("Marking up 2 parallel paths")
 
-    user_msg = mark_up_2_parallel_paths_template.format(process_description)
+    prompt = extract_2_parallel_paths_template.format(process_description)
 
-    completion = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": SYSTEM_MSG},
-            {"role": "user", "content": user_msg},
-        ],
-        temperature=0,
-        max_tokens=256,
+    completion = openai.Completion.create(
+        model="text-davinci-003", prompt=prompt, max_tokens=128, temperature=0
     )
 
-    print("Parallel paths:", completion.choices[0].message, "\n")
-    return completion.choices[0].message["content"]
+    print("Parallel paths:", completion.choices[0], "\n")
+    return completion.choices[0]["text"]

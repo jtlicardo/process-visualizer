@@ -4,6 +4,7 @@ import requests
 import spacy
 from sentence_transformers import SentenceTransformer, util
 from spacy.matcher import Matcher
+from thefuzz import fuzz
 
 import openai_prompts as prompts
 from coreference_resolution.coref import resolve_references
@@ -174,9 +175,47 @@ def create_agent_task_pairs(agents, tasks, sentences):
             if sent["start"] <= task["start"] <= sent["end"]:
                 tasks_in_sentences.append({"index": i, "task": task})
 
+    multi_agent_sentences_idx = []
+    multi_agent_sentences = []
+
+    # Check if multiple agents appear in the same sentence
+    for i, agent in enumerate(agents_in_sentences):
+        if i != len(agents_in_sentences) - 1:
+            if agent["index"] == agents_in_sentences[i + 1]["index"]:
+                print(
+                    "Multiple agents in sentence:",
+                    sentences[agent["index"]]["sentence"],
+                    "\n",
+                )
+                multi_agent_sentences_idx.append(agent["index"])
+
+    # For sentences that contain multiple agents, connect agents and tasks based on their order in the sentence
+    # For example, if the sentence is "A does B and C does D", then the agent-task pairs are (A, B) and (C, D)
+
+    for idx in multi_agent_sentences_idx:
+        sentence_data = {
+            "sentence_idx": idx,
+            "agents": [agent for agent in agents_in_sentences if agent["index"] == idx],
+            "tasks": [task for task in tasks_in_sentences if task["index"] == idx],
+        }
+        multi_agent_sentences.append(sentence_data)
+
+    for sentence in multi_agent_sentences:
+        for i, agent in enumerate(sentence["agents"]):
+            agent_task_pairs.append(
+                {
+                    "agent": agent["agent"],
+                    "task": sentence["tasks"][i]["task"],
+                    "sentence_idx": sentence["sentence_idx"],
+                }
+            )
+
     for agent in agents_in_sentences:
         for task in tasks_in_sentences:
-            if agent["index"] == task["index"]:
+            if (
+                agent["index"] == task["index"]
+                and agent["index"] not in multi_agent_sentences_idx
+            ):
                 agent_task_pairs.append(
                     {
                         "agent": agent["agent"],
@@ -184,6 +223,8 @@ def create_agent_task_pairs(agents, tasks, sentences):
                         "sentence_idx": task["index"],
                     }
                 )
+
+    agent_task_pairs = sorted(agent_task_pairs, key=lambda k: k["sentence_idx"])
 
     return agent_task_pairs
 
@@ -432,10 +473,13 @@ def check_if_conditions_in_same_gateway(
                 "condition_1": condition["condition_id"],
                 "condition_2": conditions[i + 1]["condition_id"],
             }
-            response = prompts.same_exclusive_gateway(
-                process_description, condition_pair
-            )
-            obj["result"] = response
+            if obj["condition_1"] != obj["condition_2"]:
+                response = prompts.same_exclusive_gateway(
+                    process_description, condition_pair
+                )
+                obj["result"] = response
+            else:
+                obj["result"] = "TRUE"
             result.append(obj)
 
     return result
@@ -600,88 +644,42 @@ def extract_all_entities(data: list) -> tuple:
     return (agents, tasks, conditions, process_info)
 
 
-def split_up_parallel_process(marked_up_text: str) -> list:
-    """
-    Splits up the text into parallel paths.
-    Args:
-        marked_up_text (str): the text containing [S] and [E] tags indicating the start and end of parallel paths
-    Returns:
-        list: a list of dictionaries
-    """
+def get_indices(paths: str, process_description: str):
 
-    if "[S]" not in marked_up_text and "[E]" not in marked_up_text:
-        return [
-            {
-                "text": marked_up_text,
-                "parallel_path_id": None,
-                "start": 0,
-                "end": len(marked_up_text),
-            }
+    paths = paths.split("||")
+    paths = [s.strip() for s in paths]
+
+    indices = []
+
+    matches = []
+
+    for path in paths:
+        potential_matches = []
+        length = len(path)
+        first_word = path.split()[0]
+        first_word_indices = [
+            i
+            for i in range(len(process_description))
+            if process_description.startswith(first_word, i)
         ]
-
-    substrings = []
-
-    sections = marked_up_text.split("[E]")
-
-    first_part = sections[0].split("[S]")
-
-    start_idx = 0
-    parallel_path_id = 0
-
-    end_idx = start_idx + len(first_part[0].strip())
-
-    substrings.append(
-        {
-            "text": first_part[0].strip(),
-            "parallel_path_id": None,
-            "start": start_idx,
-            "end": end_idx,
-        }
-    )
-
-    start_idx += len(first_part[0].strip()) + 1
-    end_idx = start_idx + len(first_part[1].strip())
-
-    substrings.append(
-        {
-            "text": first_part[1].strip(),
-            "parallel_path_id": parallel_path_id,
-            "start": start_idx,
-            "end": end_idx,
-        }
-    )
-
-    parallel_path_id += 1
-
-    start_idx += len(first_part[1].strip()) + 1
-
-    sections.pop(0)
-
-    for section in sections:
-        text = section.replace("[S]", "").strip()
-        end_idx = start_idx + len(text)
-        if "[S]" in section:
-            substrings.append(
-                {
-                    "text": text,
-                    "parallel_path_id": parallel_path_id,
-                    "start": start_idx,
-                    "end": end_idx,
-                }
+        for idx in first_word_indices:
+            potential_match = process_description[idx : idx + length + 1]
+            prob = fuzz.ratio(path, potential_match)
+            potential_matches.append(
+                {"potential_match": potential_match, "probability": prob}
             )
-            parallel_path_id += 1
-        else:
-            substrings.append(
-                {
-                    "text": text,
-                    "parallel_path_id": None,
-                    "start": start_idx,
-                    "end": end_idx,
-                }
-            )
-        start_idx += len(text) + 1
+        matches.append(max(potential_matches, key=lambda x: x["probability"]))
 
-    return substrings
+    for path in matches:
+        txt = path["potential_match"]
+        indices.append(
+            {
+                "start": process_description.find(txt),
+                "end": process_description.find(txt) + len(txt),
+            }
+        )
+
+    return indices
 
 
 def get_parallel_paths(text):
@@ -690,31 +688,21 @@ def get_parallel_paths(text):
     if num == 1:
         return None
     elif num == 2:
-        marked_up_text = prompts.mark_up_2_parallel_paths(text)
+        paths = prompts.extract_2_parallel_paths(text)
     elif num == 3:
-        marked_up_text = prompts.mark_up_3_parallel_paths(text)
-    split_up_process = split_up_parallel_process(marked_up_text)
-    parallel_paths = [x for x in split_up_process if x["parallel_path_id"] is not None]
-    return parallel_paths
-
-
-def get_parallel_gateway(text):
-    parallel_path_indices = []
-    parallel_paths = get_parallel_paths(text)
-    if parallel_paths is None:
-        return None
-    for path in parallel_paths:
-        parallel_path_indices.append({"start": path["start"], "end": path["end"]})
-    gateway = {"id": "PG0", "paths": parallel_path_indices}
-    return gateway
+        paths = prompts.extract_3_parallel_paths(text)
+    indices = get_indices(paths, text)
+    return indices
 
 
 def handle_text_with_parallel_keywords(agent_task_pairs, text):
 
     updated_agent_task_pairs = []
 
-    gateway = get_parallel_gateway(text)
-    print("Parallel gateway:", gateway)
+    indices = get_parallel_paths(text)
+    gateway = {"id": "PG0", "paths": indices}
+
+    print("Parallel gateway:", gateway, "\n")
 
     for pair in agent_task_pairs:
         pair["parallel_path_id"] = None
