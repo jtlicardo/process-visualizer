@@ -49,13 +49,13 @@ def same_exclusive_gateway(process_description: str, condition_pair: str) -> str
     )
 
     print(completion.choices[0].message, "\n")
-    return completion.choices[0].message
+    return completion.choices[0].message["content"]
 
 
 number_of_parallel_paths_template = """
 Process description: '{}'
 
-Based on this process, determine the number of parallel paths in the process. Respond with a single number in integer format. Do not respond with anything else.
+This is a process which contains activities executing in parallel. Determine the number of parallel paths in the process. Respond with a single number in integer format. Do not respond with anything else.
 
 Example response: 2
 
@@ -81,43 +81,35 @@ def number_of_parallel_paths(process_description: str) -> str:
             {"role": "user", "content": user_msg},
         ],
         temperature=0,
-        max_tokens=1,
+        max_tokens=2,
     )
 
     print("Number of parallel paths:", completion.choices[0].message, "\n")
-    return completion.choices[0].message
+    return completion.choices[0].message["content"]
 
 
-mark_up_parallel_paths_template = """
-You will be given a description of a process with {} parallel paths. Your task is to mark up the text of the description so that the parallel paths can be easily identified, without modifying the content of the description. To achieve this, you should rewrite the process description by adding [S] at the start of each parallel path and [E] at the end of each parallel path. The [S] and [E] markers should be added inline with the rest of the text.
+mark_up_3_parallel_paths_template = """
+You will be given a description of a process with 3 parallel paths. Your task is to add [S] at the start of each parallel path and [E] at the end of each parallel path. Add the [S] and [E] markers inline with the rest of the text.
 
-Here's an example of how the process description should be marked up:
+Original process description: The process begins by X doing Y. After that, the process splits into 3 parallel paths. Path 1 involves A and B. Path 2 involves C and D. Path 3 involves E and F. Once all these 3 activities are finished, A does B and the process ends.
+Marked-up process description: The process begins by X doing Y. After that, the process splits into 3 parallel paths. [S] Path 1 involves A and B. [E] [S] Path 2 involves C and D. [E] [S] Path 3 involves E and F. [E] Once all these 3 activities are finished, A does B and the process ends.
 
-Original process description: 'The process consists of three parallel paths. Path 1 involves A and B. Path 2 involves C and D. Path 3 involves E and F.'
-
-Marked-up process description: 'The process consists of three parallel paths. [S] Path 1 involves A and B. [E] [S] Path 2 involves C and D. [E] [S] Path 3 involves E and F. [E]'
-
-Process description: '{}'
-
+Process description: {}
 Marked-up process description:
 """
 
 
-def mark_up_parallel_paths(
-    process_description: str, number_of_parallel_paths: int
-) -> str:
+def mark_up_3_parallel_paths(process_description: str) -> str:
     """
     Marks up the given process description so that the parallel paths can be easily identified.
     Args:
         process_description (str): A description of the business process
-        number_of_parallel_paths (int): The number of parallel paths in the process
     Returns:
         str: The response from the GPT-3.5 model (the marked-up process description)
     """
+    print("Marking up 3 parallel paths")
 
-    user_msg = mark_up_parallel_paths_template.format(
-        number_of_parallel_paths, process_description
-    )
+    user_msg = mark_up_3_parallel_paths_template.format(process_description)
 
     completion = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -130,4 +122,41 @@ def mark_up_parallel_paths(
     )
 
     print("Parallel paths:", completion.choices[0].message, "\n")
-    return completion.choices[0].message
+    return completion.choices[0].message["content"]
+
+
+mark_up_2_parallel_paths_template = """
+You will be given a description of a process with 2 parallel paths. Your task is to add [S] at the start of each parallel path and [E] at the end of each parallel path. Add the [S] and [E] markers inline with the rest of the text.
+
+Original process description: John does task1 and John does task2 at the same time.
+Marked-up process description: [S] John does task1 [E] and [S] John does task2 [E] at the same time.
+
+Original process description: {}
+Marked-up process description:
+"""
+
+
+def mark_up_2_parallel_paths(process_description: str) -> str:
+    """
+    Marks up the given process description so that the parallel paths can be easily identified.
+    Args:
+        process_description (str): A description of the business process
+    Returns:
+        str: The response from the GPT-3.5 model (the marked-up process description)
+    """
+    print("Marking up 2 parallel paths")
+
+    user_msg = mark_up_2_parallel_paths_template.format(process_description)
+
+    completion = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": SYSTEM_MSG},
+            {"role": "user", "content": user_msg},
+        ],
+        temperature=0,
+        max_tokens=256,
+    )
+
+    print("Parallel paths:", completion.choices[0].message, "\n")
+    return completion.choices[0].message["content"]
