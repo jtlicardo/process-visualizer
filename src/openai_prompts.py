@@ -130,7 +130,8 @@ You will be given a description of a process with 2 parallel paths. Your task is
 
 Original process description: John does task1 and John does task2 at the same time.
 Marked-up process description: [S] John does task1 [E] and [S] John does task2 [E] at the same time.
-
+Original process description: The mailman delivers the mail and greets people. At the same time, the milkman delivers milk.
+Marked-up process description: [S] The mailman delivers the mail and greets people. [E] [S] At the same time, the milkman delivers milk. [E] 
 Original process description: {}
 Marked-up process description:
 """
