@@ -121,16 +121,16 @@ def extract_3_parallel_paths(process_description: str) -> str:
 
 
 extract_2_parallel_paths_template = """
-Extract the text of 2 parallel paths in the following format: <path> || <path>
+This is a process which contains 2 parallel paths. If the text contains nested parallel paths, extract the outermost parallel paths. Extract the text of 2 parallel paths in the following format: <path> || <path>
 
 ###
 
-Process: John does A and John does Bat the same time.
+Process: John does A and John does B at the same time.
 Paths: John does A || John does B
 Process: After that, he delivers the mail and greets people. At the same time, the milkman delivers milk.
 Paths: he delivers the mail and greets people || the milkman delivers milk
-Process: The boss decides if yes or no. If yes, there will be two activities happening in parallel: A does X, while the boss does Y. If not, A will do Z.
-Paths: A does X || the boss does Y
+Process: There are 2 main things happening in parallel: the first thing is when A does B. The second thing is when C does D. C also does E in parallel. After those 2 main things are done, A does F.
+Paths: A does B || C does D. C also does E in parallel.
 Process: {}
 Paths:
 """
