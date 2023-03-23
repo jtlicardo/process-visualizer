@@ -97,7 +97,14 @@ def classify_process_info(text: str) -> dict:
     data = query(
         {
             "inputs": text,
-            "parameters": {"candidate_labels": ["process start", "process end"]},
+            "parameters": {
+                "candidate_labels": [
+                    "start",
+                    "end",
+                    "split",
+                    "return"
+                ]
+            },
             "options": {"wait_for_model": True},
         },
         ZERO_SHOT_CLASSIFICATION_ENDPOINT,
@@ -126,9 +133,13 @@ def batch_classify_process_info(process_info_entities: list):
     for entity in process_info_entities:
         text = entity["word"]
         data = classify_process_info(text)
-        entity["entity_group"] = (
-            "PROCESS_START" if data["labels"][0] == "process start" else "PROCESS_END"
-        )
+        process_info_dict = {
+            "start": "PROCESS_START",
+            "end": "PROCESS_END",
+            "split": "PROCESS_SPLIT",
+            "return": "PROCESS_RETURN"
+        }
+        entity["entity_group"] = process_info_dict[data["labels"][0]]
         updated_entities.append(entity)
 
     return updated_entities
