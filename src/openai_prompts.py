@@ -121,16 +121,28 @@ def extract_3_parallel_paths(process_description: str) -> str:
 
 
 extract_2_parallel_paths_template = """
-This is a process which contains 2 parallel paths. If the text contains nested parallel paths, extract the outermost parallel paths. Extract the text of 2 parallel paths in the following format: <path> || <path>
+You will receive a process which contains 2 parallel paths.
+Extract the 2 spans of text that belong to the 2 parallel paths in the following format: <path> && <path>
+You must extract the entire span of text that belongs to a given path, not just a part of it.
+Use the && symbols only once.
 
 ###
 
-Process: John does A and John does B at the same time.
-Paths: John does A || John does B
-Process: After that, he delivers the mail and greets people. At the same time, the milkman delivers milk.
-Paths: he delivers the mail and greets people || the milkman delivers milk
-Process: There are 2 main things happening in parallel: the first thing is when A does B. The second thing is when C does D. C also does E in parallel. After those 2 main things are done, A does F.
-Paths: A does B || C does D. C also does E in parallel.
+Process: After that, he delivers the mail and greets people. Simultaneously, the milkman delivers milk.
+Paths: he delivers the mail and greets people && the milkman delivers milk
+
+Process: There are 2 main things happening in parallel: the first thing is when John goes to the supermarket. The second thing is when Amy goes to the doctor. Amy also calls John at the same time. After those 2 main things are done, John goes home.
+Paths: John goes to the supermarket && Amy goes to the doctor. Amy also calls John at the same time.
+
+Process: The team designs the interface. If it's approved, the team implements it. If not, the team revises the existing design and starts drafting a new one in parallel.
+Paths: the team revises the existing design && starts drafting a new one
+
+Process: The process is composed of 2 activities done concurrently: the first one is the customer filling out a loan application. The second activity is a longer one, and it is composed of the manager deciding whether to prepare additional questions. If yes, the manager prepares additional questions. If the decision is not to prepare, the manager sends an email and manager reads the newspaper at the same time. After both activities have finished, the customer sends the application.
+Paths: the customer filling out a loan application && the manager deciding whether to prepare additional questions. If yes, the manager prepares additional questions. If the decision is not to prepare, the manager sends an email and manager reads the newspaper at the same time
+
+Process: If the decision is not to prepare, the manager waits for the customer. After that, the manager sends an email. While sending an email, the manager also reads a newspaper.
+Paths: the manager sends an email && the manager also reads a newspaper
+
 Process: {}
 Paths:
 """

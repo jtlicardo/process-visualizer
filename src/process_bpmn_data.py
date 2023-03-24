@@ -97,14 +97,7 @@ def classify_process_info(text: str) -> dict:
     data = query(
         {
             "inputs": text,
-            "parameters": {
-                "candidate_labels": [
-                    "start",
-                    "end",
-                    "split",
-                    "return"
-                ]
-            },
+            "parameters": {"candidate_labels": ["start", "end", "split", "return"]},
             "options": {"wait_for_model": True},
         },
         ZERO_SHOT_CLASSIFICATION_ENDPOINT,
@@ -137,7 +130,7 @@ def batch_classify_process_info(process_info_entities: list):
             "start": "PROCESS_START",
             "end": "PROCESS_END",
             "split": "PROCESS_SPLIT",
-            "return": "PROCESS_RETURN"
+            "return": "PROCESS_RETURN",
         }
         entity["entity_group"] = process_info_dict[data["labels"][0]]
         updated_entities.append(entity)
@@ -657,7 +650,7 @@ def extract_all_entities(data: list) -> tuple:
 
 def get_indices(paths: str, process_description: str):
 
-    paths = paths.split("||")
+    paths = paths.split("&&")
     paths = [s.strip() for s in paths]
 
     indices = []
