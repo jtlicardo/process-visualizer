@@ -1,4 +1,5 @@
 import json
+import re
 
 import requests
 import spacy
@@ -648,65 +649,121 @@ def extract_all_entities(data: list) -> tuple:
     return (agents, tasks, conditions, process_info)
 
 
-def get_indices(paths: str, process_description: str):
-
-    paths = paths.split("&&")
-    paths = [s.strip() for s in paths]
+def get_indices(strings: list, text: str) -> list:
+    """
+    Gets the start and end indices of the given strings in the text by using fuzzy string matching.
+    Args:
+        strings (list): the list of strings to be found in the text
+        text (str): the text in which the strings are to be found
+    Returns:
+        list: the list of start and end indices
+    """
 
     indices = []
-
     matches = []
 
-    for path in paths:
+    for str in strings:
         potential_matches = []
-        length = len(path)
-        first_word = path.split()[0]
+        length = len(str)
+        first_word = str.split()[0].lower()
         first_word_indices = [
-            i
-            for i in range(len(process_description))
-            if process_description.startswith(first_word, i)
+            i for i in range(len(text)) if text.lower().startswith(first_word, i)
         ]
         for idx in first_word_indices:
-            potential_match = process_description[idx : idx + length + 1]
-            prob = fuzz.ratio(path, potential_match)
+            potential_match = text[idx : idx + length + 1]
+            prob = fuzz.ratio(str, potential_match)
             potential_matches.append(
                 {"potential_match": potential_match, "probability": prob}
             )
         matches.append(max(potential_matches, key=lambda x: x["probability"]))
 
-    for path in matches:
-        txt = path["potential_match"]
+    for match in matches:
+        txt = match["potential_match"]
         indices.append(
             {
-                "start": process_description.find(txt),
-                "end": process_description.find(txt) + len(txt),
+                "start": text.find(txt),
+                "end": text.find(txt) + len(txt),
             }
         )
 
     return indices
 
 
-def get_parallel_paths(text):
-    num = int(prompts.number_of_parallel_paths(text))
+def get_parallel_paths(parallel_gateway, process_description):
+    num = int(prompts.number_of_parallel_paths(parallel_gateway))
     assert num <= 3, "The maximum number of parallel paths is 3"
+    paths = ""
     if num == 1:
         return None
     elif num == 2:
-        paths = prompts.extract_2_parallel_paths(text)
+        paths = prompts.extract_2_parallel_paths(parallel_gateway)
     elif num == 3:
-        paths = prompts.extract_3_parallel_paths(text)
-    indices = get_indices(paths, text)
+        paths = prompts.extract_3_parallel_paths(parallel_gateway)
+    paths = paths.split("&&")
+    paths = [s.strip() for s in paths]
+    indices = get_indices(paths, process_description)
+    print("Parallel path indices:", indices, "\n")
     return indices
 
 
-def handle_text_with_parallel_keywords(agent_task_pairs, text):
+def get_parallel_gateways(text):
+    response = prompts.extract_parallel_gateways(text)
+    pattern = r"Parallel gateway (\d+): (.+)"
+    matches = re.findall(pattern, response)
+    gateways = [match[1] for match in matches]
+    indices = get_indices(gateways, text)
+    print("Parallel gateway indices:", indices, "\n")
+    return indices
+
+
+def handle_text_with_parallel_keywords(agent_task_pairs, process_description):
 
     updated_agent_task_pairs = []
+    parallel_gateways = []
+    parallel_gateway_id = 0
+
+    gateway_indices = get_parallel_gateways(process_description)
+
+    for indices in gateway_indices:
+        gateway = {
+            "id": f"PG{parallel_gateway_id}",
+            "start": indices["start"],
+            "end": indices["end"],
+        }
+        gateway_text = process_description[indices["start"] : indices["end"]]
+        gateway["paths"] = get_parallel_paths(gateway_text, process_description)
+        parallel_gateway_id += 1
+        parallel_gateways.append(gateway)
+
+    for gateway in parallel_gateways:
+        for path in gateway["paths"]:
+            if has_parallel_keywords(path):
+                path_text = process_description[path["start"] : path["end"]]
+                print("Parallel keywords detected in path:", path_text)
+                indices = get_parallel_paths(path_text, process_description)
+                gateway = {"id": f"PG{parallel_gateway_id}", "paths": indices}
+                parallel_gateway_id += 1
+                parallel_gateways.append(gateway)
+
+    return
 
     indices = get_parallel_paths(text)
-    gateway = {"id": "PG0", "paths": indices}
+
+    gateway = {"id": f"PG{parallel_gateway_id}", "paths": indices}
+    parallel_gateway_id += 1
 
     print("Parallel gateway:", gateway, "\n")
+
+    paths = []
+    for path in indices:
+        paths.append(text[path["start"] : path["end"]])
+
+    for path in paths:
+        if has_parallel_keywords(path):
+            print("Parallel keywords detected in path:", path)
+            indices = get_parallel_paths(path)
+            gateway = {"id": f"PG{parallel_gateway_id}", "paths": indices}
+            parallel_gateway_id += 1
 
     for pair in agent_task_pairs:
         pair["parallel_path_id"] = None
@@ -745,6 +802,8 @@ def process_text(text):
 
     if has_parallel_keywords(text):
         agent_task_pairs = handle_text_with_parallel_keywords(agent_task_pairs, text)
+
+    return
 
     if len(conditions) > 0:
         agent_task_pairs = handle_conditions(
