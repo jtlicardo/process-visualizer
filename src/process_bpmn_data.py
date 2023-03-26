@@ -53,7 +53,7 @@ def create_sentence_data(text: str) -> list:
         sentence_data.append({"sentence": sent, "start": start, "end": end})
         start += len(sent) + 1
 
-    write_to_file("sentence_data.txt", sentence_data)
+    write_to_file("sentence_data.json", sentence_data)
     return sentence_data
 
 
@@ -77,7 +77,7 @@ def extract_bpmn_data(text: str) -> list:
         {"inputs": text, "options": {"wait_for_model": True}},
         BPMN_INFORMATION_EXTRACTION_ENDPOINT,
     )
-    write_to_file("model_output.txt", data)
+    write_to_file("model_output.json", data)
 
     if "error" in data:
         print("Error when extracting BPMN data:", data["error"])
@@ -450,7 +450,7 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
         conditions (list): the list of condition entities found in the process description
     Returns:
         list: the list of exclusive gateways
-    
+
     Example output:
     [
         {
@@ -636,9 +636,8 @@ def get_parallel_gateways(text):
     return indices
 
 
-def handle_text_with_parallel_keywords(agent_task_pairs, process_description):
+def handle_text_with_parallel_keywords(process_description):
 
-    updated_agent_task_pairs = []
     parallel_gateways = []
     parallel_gateway_id = 0
 
@@ -657,43 +656,23 @@ def handle_text_with_parallel_keywords(agent_task_pairs, process_description):
 
     for gateway in parallel_gateways:
         for path in gateway["paths"]:
-            if has_parallel_keywords(path):
-                path_text = process_description[path["start"] : path["end"]]
-                print("Parallel keywords detected in path:", path_text)
+            path_text = process_description[path["start"] : path["end"]]
+            if has_parallel_keywords(path_text):
+                print("Parallel keywords detected in path:", path_text, "\n")
                 indices = get_parallel_paths(path_text, process_description)
-                gateway = {"id": f"PG{parallel_gateway_id}", "paths": indices}
+                gateway = {
+                    "id": f"PG{parallel_gateway_id}",
+                    "start": path["start"],
+                    "end": path["end"],
+                    "paths": indices,
+                    "parent": gateway["id"],
+                }
                 parallel_gateway_id += 1
                 parallel_gateways.append(gateway)
 
-    return
+    print("Parallel gateway data:", parallel_gateways, "\n")
 
-    indices = get_parallel_paths(text)
-
-    gateway = {"id": f"PG{parallel_gateway_id}", "paths": indices}
-    parallel_gateway_id += 1
-
-    print("Parallel gateway:", gateway, "\n")
-
-    paths = []
-    for path in indices:
-        paths.append(text[path["start"] : path["end"]])
-
-    for path in paths:
-        if has_parallel_keywords(path):
-            print("Parallel keywords detected in path:", path)
-            indices = get_parallel_paths(path)
-            gateway = {"id": f"PG{parallel_gateway_id}", "paths": indices}
-            parallel_gateway_id += 1
-
-    for pair in agent_task_pairs:
-        pair["parallel_path_id"] = None
-        for path in gateway["paths"]:
-            if pair["task"]["start"] in range(path["start"], path["end"]):
-                pair["parallel_path_id"] = gateway["paths"].index(path)
-                break
-        updated_agent_task_pairs.append(pair)
-
-    return updated_agent_task_pairs
+    return parallel_gateways
 
 
 def process_text(text):
@@ -721,7 +700,7 @@ def process_text(text):
     agent_task_pairs = create_agent_task_pairs(agents, tasks, sents_data)
 
     if has_parallel_keywords(text):
-        agent_task_pairs = handle_text_with_parallel_keywords(agent_task_pairs, text)
+        parallel_gateway_data = handle_text_with_parallel_keywords(text)
 
     if len(conditions) > 0:
         agent_task_pairs = handle_conditions(
