@@ -9,23 +9,23 @@ openai.api_key = os.getenv("OPENAI_KEY")
 SYSTEM_MSG = "You are a highly experienced business process modelling expert, specializing in BPMN modelling. You will be provided with a description of a complex business process and will need to answer questions regarding the process. Your answers should be clear, accurate and concise."
 
 
-def same_exclusive_gateway(process_description: str, condition_pair: str) -> str:
+def extract_gateway_conditions(process_description: str, conditions: str) -> str:
     """
-    Determines whether the given condition pair should be modeled using the same exclusive gateway.
+    Determines which conditions belong to which exclusive gateway.
     Args:
         process_description (str): A description of the business process
-        condition_pair (str): A pair of conditions to be evaluated, in the following format: 'condition1' and 'condition2'
+        conditions (str): The conditions that appear in the process
     Returns:
-        str: The response from the GPT-3.5 model (either 'TRUE' or 'FALSE')
+        str: The response from the GPT-3.5 model (the conditions that belong to a specific exclusive gateway)
     """
 
-    same_exclusive_gateway_template = "You will receive a description of a process and a pair of conditions that appear in the process. Determine whether the given conditions belong to the same exclusive gateway. Respond with either TRUE or FALSE\n\n###\n\nProcess: 'The customer decides if he wants to finance or pay in cash. If the customer chooses to finance, the customer will need to fill out a loan application. If the customer chooses to pay in cash, the customer will need to bring the total cost of the car to the dealership in order to complete the transaction.'\nConditions: 'If the customer chooses to finance' and 'If the customer chooses to pay in cash'\nSame exclusive gateway: TRUE\n\nProcess: 'The process begins with the student choosing his preferences. Then the professor allocates the student. After that the professor notifies the student. The employer evaluates the candidate. If the student is accepted, the professor notifies the student. The student then completes his internship. If the student is successful, he gets a passing grade'\nConditions: 'If the student is accepted' and 'If the student is successful'\nSame exclusive gateway: FALSE\n\nProcess: '{}'\nConditions: {}\nSame exclusive gateway:"
+    extract_gateway_conditions_template = "You will receive a description of a process and a list of conditions that appear in the process. Determine which conditions belong to which exclusive gateway.\n\n###\n\nProcess: 'The customer decides if he wants to finance or pay in cash. If the customer chooses to finance, the customer will need to fill out a loan application. If the customer chooses to pay in cash, the customer will need to bring the total cost of the car to the dealership in order to complete the transaction.'\nConditions: If the customer chooses to finance', 'If the customer chooses to pay in cash'\nExclusive gateway 1: If the customer chooses to finance || If the customer chooses to pay in cash\n\nProcess: 'The restaurant receives the food order from the customer. If the dish is not available, the customer is informed that the order cannot be fulfilled. If the dish is available and the payment is successful, the restaurant prepares and serves the order. If the dish is available, but the payment fails, the customer is notified that the order cannot be processed.'\nConditions: 'If the dish is not available', 'If the dish is available and the payment is successful', 'If the dish is available, but the payment fails'\nExclusive gateway 1: If the dish is not available || If the dish is available and the payment is successful || If the dish is available, but the payment fails\n\nProcess: 'The customer places an order on the website. The system checks the inventory status of the ordered item. If the item is in stock, the system checks the customer's payment information. If the item is out of stock, the system sends an out of stock notification to the customer and cancels the order. After checking the customer's payment info, if the payment is authorized, the system generates an order confirmation and sends it to the customer, and the order is sent to the warehouse for shipping. If the payment is declined, the system sends a payment declined notification to the customer and cancels the order.'\nConditions: 'If the item is in stock', 'If the item is out of stock', 'if the payment is authorized', 'If the payment is declined'\nExclusive gateway 1: If the item is in stock || If the item is out of stock\nExclusive gateway 2: if the payment is authorized || If the payment is declined\n\nProcess: 'The process begins with the student choosing his preferences. Then the professor allocates the student. After that the professor notifies the student. The employer evaluates the candidate. If the student is accepted, the professor notifies the student. The student then completes his internship. If the student is successful, he gets a passing grade'\nConditions: 'If the student is accepted','If the student is successful'\nExclusive gateway 1: If the student is accepted\nExclusive gateway 2: If the student is successful\n\nProcess: {}\nConditions: {}"
 
-    user_msg = same_exclusive_gateway_template.format(
-        process_description, condition_pair
+    user_msg = extract_gateway_conditions_template.format(
+        process_description, conditions
     )
 
-    print(condition_pair)
+    print(conditions)
 
     completion = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -34,7 +34,7 @@ def same_exclusive_gateway(process_description: str, condition_pair: str) -> str
             {"role": "user", "content": user_msg},
         ],
         temperature=0,
-        max_tokens=2,
+        max_tokens=128,
     )
 
     print(completion.choices[0].message["content"], "\n")

@@ -270,17 +270,16 @@ def add_process_end_events(
 
 def add_conditions(conditions: list, agent_task_pairs: list, sentences: list) -> list:
     """
-    Adds conditions and condition ids to agent-task pairs
+    Adds conditions to agent-task pairs
     Args:
         conditions (list): a list of conditions
         agent_task_pairs (list): a list of agent-task pairs
         sentences (list): a list of sentences
     Returns:
-        list: a list of agent-task pairs with conditions and condition ids
+        list: a list of agent-task pairs with conditions
     """
 
     updated_agent_task_pairs = []
-    condition_id = 0
 
     for pair in agent_task_pairs:
 
@@ -293,8 +292,6 @@ def add_conditions(conditions: list, agent_task_pairs: list, sentences: list) ->
                 for condition in conditions:
                     if sent["start"] <= condition["start"] <= sent["end"]:
                         pair["condition"] = condition
-                        pair["condition"]["condition_id"] = f"C{condition_id}"
-                        condition_id += 1
                         break
 
         updated_agent_task_pairs.append(pair)
@@ -445,96 +442,72 @@ def add_loops(agent_task_pairs, sentences, loop_sentences):
     return updated_agent_task_pairs
 
 
-def get_conditions(agent_task_pairs: list) -> list:
+def extract_exclusive_gateways(process_description: str, conditions: list) -> list:
     """
-    Gets the conditions from the agent-task pairs.
-    Args:
-        agent_task_pairs (list): the list of agent-task pairs
-    Returns:
-        list: the list of conditions
-    """
-    return [pair["condition"] for pair in agent_task_pairs if "condition" in pair]
-
-
-def check_if_conditions_in_same_gateway(
-    process_description: str, conditions: list
-) -> list:
-    """
-    Checks whether conditions belong to the same exclusive gateway.
+    Extracts the conditions for each exclusive gateway in the process description
     Args:
         process_description (str): the process description
-        conditions (list): the list of conditions
+        conditions (list): the list of condition entities found in the process description
     Returns:
-        list: list of dictionaries, each dictionary contains the condition ids and the result of the check
+        list: the list of exclusive gateways
+    
+    Example output:
+    [
+        {
+            "id": "EG0",
+            "conditions": [
+                "if the customer is a new customer",
+                "if the customer is an existing customer"
+            ]
+        },
+    ]
     """
 
-    result = []
-    obj = {}
-
-    for i, condition in enumerate(conditions):
-        if i < len(conditions) - 1:
-            condition_pair = f"'{condition['word']}' and '{conditions[i+1]['word']}'"
-            obj = {
-                "condition_1": condition["condition_id"],
-                "condition_2": conditions[i + 1]["condition_id"],
-            }
-            if obj["condition_1"] != obj["condition_2"]:
-                response = prompts.same_exclusive_gateway(
-                    process_description, condition_pair
-                )
-                obj["result"] = response
-            else:
-                obj["result"] = "TRUE"
-            result.append(obj)
-
-    return result
-
-
-def assign_exclusive_gateway_ids(results: list) -> dict:
-    """
-    Assigns exclusive gateway ids to each condition.
-    Args:
-        results (list): the list of dictionaries, each dictionary contains the condition ids and the result of the check
-    Returns:
-        dict: dictionary with condition ids as keys and exclusive gateway ids as values
-    """
-
-    conditions = {}
-    id = 0
-
-    for result in results:
-        if result["result"] == "TRUE":
-            if result["condition_1"] not in conditions:
-                conditions[result["condition_1"]] = f"EG{id}"
-            conditions[result["condition_2"]] = f"EG{id}"
+    condition_string = ""
+    for condition in conditions:
+        condition_text = condition["word"]
+        if condition_string == "":
+            condition_string += f"'{condition_text}'"
         else:
-            if result["condition_1"] not in conditions:
-                conditions[result["condition_1"]] = f"EG{id}"
-            conditions[result["condition_2"]] = f"EG{id + 1}"
-        id += 1
+            condition_string += f", '{condition_text}'"
 
-    return conditions
+    response = prompts.extract_gateway_conditions(process_description, condition_string)
+
+    pattern = r"Exclusive gateway (\d+): (.+)"
+    matches = re.findall(pattern, response)
+    gateway_conditions = [match[1] for match in matches]
+    exclusive_gateways = [
+        {"id": f"EG{i}", "conditions": [x.strip() for x in gateway.split("||")]}
+        for i, gateway in enumerate(gateway_conditions)
+    ]
+    print("Exclusive gateways\n", exclusive_gateways)
+    return exclusive_gateways
 
 
-def add_exclusive_gateway_ids(agent_task_pairs: list, conditions: dict):
+def add_exclusive_gateway_ids(agent_task_pairs: list, conditions: dict) -> list:
     """
-    Adds exclusive gateway ids to agent-task pairs
+    Adds exclusive gateway ids to agent-task pairs.
     Args:
         agent_task_pairs (list): the list of agent-task pairs
-        conditions (dict): dictionary with condition ids as keys and exclusive gateway ids as values
+        conditions (dict): the key is the condition and the value is the exclusive gateway id
     Returns:
         list: the list of agent-task pairs with exclusive gateway ids
     """
 
     updated_agent_task_pairs = []
-
     for pair in agent_task_pairs:
         if "condition" in pair:
-            pair["condition"]["exclusive_gateway_id"] = conditions[
-                pair["condition"]["condition_id"]
-            ]
+            condition = pair["condition"]["word"]
+            max_prob_gateway = ""
+            max_prob = 0
+            for key, value in conditions.items():
+                prob = fuzz.ratio(condition, key)
+                if prob > max_prob:
+                    max_prob = prob
+                    max_prob_gateway = value
+            assert max_prob_gateway != "", "No exclusive gateway id found"
+            pair["exclusive_gateway_id"] = max_prob_gateway
         updated_agent_task_pairs.append(pair)
-
     return updated_agent_task_pairs
 
 
@@ -553,9 +526,12 @@ def handle_conditions(
     """
 
     updated_agent_task_pairs = add_conditions(conditions, agent_task_pairs, sents_data)
-    conditions_with_ids = get_conditions(agent_task_pairs)
-    result = check_if_conditions_in_same_gateway(process_desc, conditions_with_ids)
-    conditions_with_exclusive_gateway_ids = assign_exclusive_gateway_ids(result)
+
+    exclusive_gateways = extract_exclusive_gateways(process_desc, conditions)
+    conditions_with_exclusive_gateway_ids = {
+        condition: d["id"] for d in exclusive_gateways for condition in d["conditions"]
+    }
+
     updated_agent_task_pairs = add_exclusive_gateway_ids(
         updated_agent_task_pairs, conditions_with_exclusive_gateway_ids
     )
@@ -564,63 +540,7 @@ def handle_conditions(
 
 
 def create_bpmn_structure(agent_task_pairs):
-
     pass
-
-    # parallel_gateway = {"type": "parallel", "children": [], "id": "PG0"}
-    # exclusive_gateway = {"type": "exclusive", "children": [], "id": "EG0"}
-    # structure = []
-
-    # parallel_paths_counter = 0
-
-    # for pair in agent_task_pairs:
-    #     if pair["parallel_gateway_id"] is not None:
-    #         parallel_paths_counter += 1
-
-    # # Get all agent-task pairs before parallel gateway
-    # agent_task_pairs_before_parallel_gateway = []
-    # for pair in agent_task_pairs:
-    #     if pair["parallel_gateway_id"] is None:
-    #         agent_task_pairs_before_parallel_gateway.append(pair)
-    #         agent_task_pairs.remove(pair)
-    #     else:
-    #         break
-
-    # # Get all agent-task pairs inside parallel gateway
-    # agent_task_pairs_inside_parallel_gateway = [
-    #     pair for pair in agent_task_pairs if pair["parallel_gateway_id"] is not None
-    # ]
-    # for pair in agent_task_pairs_inside_parallel_gateway:
-    #     agent_task_pairs.remove(pair)
-
-    # # Create dictionary with parallel_path_id as key and list of agent-task pairs as value
-    # parallel_path_ids = set(
-    #     x["parallel_path_id"] for x in agent_task_pairs_inside_parallel_gateway
-    # )
-    # agent_task_pairs_parallel = {}
-    # for i in parallel_path_ids:
-    #     agent_task_pairs_parallel[i] = [
-    #         {"type": "task", "content": x}
-    #         for x in agent_task_pairs_inside_parallel_gateway
-    #         if x["parallel_path_id"] == i
-    #     ]
-
-    # # Get all agent-task pairs after parallel gateway
-    # agent_task_pairs_after_parallel_gateway = agent_task_pairs
-
-    # # Create the structure of the process
-    # for pair in agent_task_pairs_before_parallel_gateway:
-    #     structure.append({"type": "task", "content": pair})
-
-    # for path_id, path in agent_task_pairs_parallel.items():
-    #     parallel_gateway["children"].append(path)
-
-    # structure.append(parallel_gateway)
-
-    # for pair in agent_task_pairs_after_parallel_gateway:
-    #     structure.append({"type": "task", "content": pair})
-
-    # return structure
 
 
 def should_resolve_coreferences(text):
@@ -808,8 +728,6 @@ def process_text(text):
             agent_task_pairs, conditions, sents_data, text
         )
 
-    return
-
     if len(process_info) > 0:
         process_info = batch_classify_process_info(process_info)
         agent_task_pairs = add_process_end_events(
@@ -820,7 +738,7 @@ def process_text(text):
     agent_task_pairs = add_task_ids(agent_task_pairs, sents_data, loop_sentences)
     agent_task_pairs = add_loops(agent_task_pairs, sents_data, loop_sentences)
 
-    write_to_file("agent_task_pairs.txt", agent_task_pairs)
+    write_to_file("agent_task_pairs.json", agent_task_pairs)
 
     return
 
