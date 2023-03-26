@@ -458,7 +458,9 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
             "conditions": [
                 "if the customer is a new customer",
                 "if the customer is an existing customer"
-            ]
+            ],
+            "start": 54,
+            "end": 251
         },
     ]
     """
@@ -480,7 +482,13 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
         {"id": f"EG{i}", "conditions": [x.strip() for x in gateway.split("||")]}
         for i, gateway in enumerate(gateway_conditions)
     ]
-    print("Exclusive gateways\n", exclusive_gateways)
+
+    for gateway in exclusive_gateways:
+        indices = get_indices(gateway["conditions"], process_description)
+        gateway["start"] = indices[0]["start"]
+        gateway["end"] = indices[-1]["end"]
+
+    print("Exclusive gateways data:", exclusive_gateways, "\n")
     return exclusive_gateways
 
 
@@ -511,7 +519,7 @@ def add_exclusive_gateway_ids(agent_task_pairs: list, conditions: dict) -> list:
     return updated_agent_task_pairs
 
 
-def handle_conditions(
+def handle_text_with_conditions(
     agent_task_pairs: list, conditions: list, sents_data: list, process_desc: str
 ) -> list:
     """
@@ -527,9 +535,11 @@ def handle_conditions(
 
     updated_agent_task_pairs = add_conditions(conditions, agent_task_pairs, sents_data)
 
-    exclusive_gateways = extract_exclusive_gateways(process_desc, conditions)
+    exclusive_gateway_data = extract_exclusive_gateways(process_desc, conditions)
     conditions_with_exclusive_gateway_ids = {
-        condition: d["id"] for d in exclusive_gateways for condition in d["conditions"]
+        condition: d["id"]
+        for d in exclusive_gateway_data
+        for condition in d["conditions"]
     }
 
     updated_agent_task_pairs = add_exclusive_gateway_ids(
@@ -703,7 +713,7 @@ def process_text(text):
         parallel_gateway_data = handle_text_with_parallel_keywords(text)
 
     if len(conditions) > 0:
-        agent_task_pairs = handle_conditions(
+        agent_task_pairs = handle_text_with_conditions(
             agent_task_pairs, conditions, sents_data, text
         )
 
