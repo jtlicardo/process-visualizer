@@ -19,7 +19,7 @@ def same_exclusive_gateway(process_description: str, condition_pair: str) -> str
         str: The response from the GPT-3.5 model (either 'TRUE' or 'FALSE')
     """
 
-    same_exclusive_gateway_template = "Process description: '{}'\n\nBased on this process, determine whether the following conditions belong to the same exclusive gateway. Respond with either TRUE or FALSE\n\nCondition pair: {}\n\nResponse:"
+    same_exclusive_gateway_template = "You will receive a description of a process and a pair of conditions that appear in the process. Determine whether the given conditions belong to the same exclusive gateway. Respond with either TRUE or FALSE\n\n###\n\nProcess: 'The customer decides if he wants to finance or pay in cash. If the customer chooses to finance, the customer will need to fill out a loan application. If the customer chooses to pay in cash, the customer will need to bring the total cost of the car to the dealership in order to complete the transaction.'\nConditions: 'If the customer chooses to finance' and 'If the customer chooses to pay in cash'\nSame exclusive gateway: TRUE\n\nProcess: 'The process begins with the student choosing his preferences. Then the professor allocates the student. After that the professor notifies the student. The employer evaluates the candidate. If the student is accepted, the professor notifies the student. The student then completes his internship. If the student is successful, he gets a passing grade'\nConditions: 'If the student is accepted' and 'If the student is successful'\nSame exclusive gateway: FALSE\n\nProcess: '{}'\nConditions: {}\nSame exclusive gateway:"
 
     user_msg = same_exclusive_gateway_template.format(
         process_description, condition_pair

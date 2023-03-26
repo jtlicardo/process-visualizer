@@ -803,12 +803,12 @@ def process_text(text):
     if has_parallel_keywords(text):
         agent_task_pairs = handle_text_with_parallel_keywords(agent_task_pairs, text)
 
-    return
-
     if len(conditions) > 0:
         agent_task_pairs = handle_conditions(
             agent_task_pairs, conditions, sents_data, text
         )
+
+    return
 
     if len(process_info) > 0:
         process_info = batch_classify_process_info(process_info)
