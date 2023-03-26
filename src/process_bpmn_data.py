@@ -546,7 +546,7 @@ def handle_text_with_conditions(
         updated_agent_task_pairs, conditions_with_exclusive_gateway_ids
     )
 
-    return updated_agent_task_pairs
+    return updated_agent_task_pairs, exclusive_gateway_data
 
 
 def create_bpmn_structure(agent_task_pairs):
@@ -713,7 +713,7 @@ def process_text(text):
         parallel_gateway_data = handle_text_with_parallel_keywords(text)
 
     if len(conditions) > 0:
-        agent_task_pairs = handle_text_with_conditions(
+        agent_task_pairs, exclusive_gateway_data = handle_text_with_conditions(
             agent_task_pairs, conditions, sents_data, text
         )
 
@@ -733,7 +733,7 @@ def process_text(text):
 
     output = create_bpmn_structure(agent_task_pairs)
 
-    write_to_file("final_output.txt", output)
+    write_to_file("final_output.json", output)
 
     return output
 
