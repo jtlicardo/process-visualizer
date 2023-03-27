@@ -9,11 +9,6 @@ The app supports the following BPMN elements:
 * parallel gateways
 * start and end events
 
-Limitations:
-
-* Maximum of 2 conditions per exclusive gateway
-* Maximum of 2 paths per parallel gateway
-
 ## Example inputs and outputs
 
 ### Example #1
