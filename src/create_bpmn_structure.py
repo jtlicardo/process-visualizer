@@ -17,12 +17,6 @@ def create_bpmn_structure(
 
     structure = []
 
-    # [
-    # {"id": "PG0", "start": 0, "end": 100, "paths": [
-    # {"start": 0, "end": 50},
-    # {"start": 50, "end": 100}
-    # ]}
-    # ]
     if parallel_gateway_data is not None:
         for gateway in parallel_gateway_data:
             children = []
@@ -65,11 +59,23 @@ def create_bpmn_structure(
 
         write_to_file("bpmn_structure/parallel_gateways.json", parallel_gateways)
 
-    # [{'id': 'EG0', 'conditions': ['If the company chooses to create a new product',
-    # 'If the company chooses to modify an existing product'], 'start': 54, 'end': 359},
-    # "condition_indices": [{'start': 54, 'end': 101}, {'start': 300, 'end': 359}]
     if exclusive_gateway_data is not None:
-        pass
+        for gateway in exclusive_gateway_data:
+            children = []
+            for i in range(len(gateway["paths"])):
+                children.append([])
+            for pair in agent_task_pairs:
+                if (
+                    "exclusive_gateway_id" in pair["content"]
+                    and pair["content"]["exclusive_gateway_id"] == gateway["id"]
+                ):
+                    children[pair["content"]["exclusive_gateway_path_id"]].append(pair)
+            exclusive_gateway = {
+                "type": "exclusive",
+                "id": gateway["id"],
+                "children": children,
+            }
+            exclusive_gateways.append(exclusive_gateway)
 
     added = []
 
@@ -87,7 +93,14 @@ def create_bpmn_structure(
                         structure.append(gateway)
                         added.append(gateway["id"])
         elif "exclusive_gateway_id" in pair["content"]:
-            continue
+            if pair["content"]["exclusive_gateway_id"] in added:
+                continue
+            else:
+                # Append the exclusive gateway with the corresponding id
+                for gateway in exclusive_gateways:
+                    if gateway["id"] == pair["content"]["exclusive_gateway_id"]:
+                        structure.append(gateway)
+                        added.append(gateway["id"])
         else:
             structure.append(pair)
 
