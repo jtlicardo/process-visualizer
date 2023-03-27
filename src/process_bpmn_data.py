@@ -269,37 +269,6 @@ def add_process_end_events(
     return agent_task_pairs
 
 
-def add_conditions(conditions: list, agent_task_pairs: list, sentences: list) -> list:
-    """
-    Adds conditions to agent-task pairs
-    Args:
-        conditions (list): a list of conditions
-        agent_task_pairs (list): a list of agent-task pairs
-        sentences (list): a list of sentences
-    Returns:
-        list: a list of agent-task pairs with conditions
-    """
-
-    updated_agent_task_pairs = []
-
-    for pair in agent_task_pairs:
-
-        task = pair["task"]
-
-        for sent in sentences:
-
-            if sent["start"] <= task["start"] <= sent["end"]:
-
-                for condition in conditions:
-                    if sent["start"] <= condition["start"] <= sent["end"]:
-                        pair["condition"] = condition
-                        break
-
-        updated_agent_task_pairs.append(pair)
-
-    return updated_agent_task_pairs
-
-
 def has_parallel_keywords(text: str) -> bool:
     nlp = spacy.load("en_core_web_md")
     matcher = Matcher(nlp.vocab)
@@ -443,6 +412,33 @@ def add_loops(agent_task_pairs, sentences, loop_sentences):
     return updated_agent_task_pairs
 
 
+def add_exclusive_gateway_ids(agent_task_pairs: list, conditions: dict) -> list:
+    """
+    Adds exclusive gateway ids to agent-task pairs.
+    Args:
+        agent_task_pairs (list): the list of agent-task pairs
+        conditions (dict): the key is the condition and the value is the exclusive gateway id
+    Returns:
+        list: the list of agent-task pairs with exclusive gateway ids
+    """
+
+    # Adding the exclusive gateway ids to the agent-task pairs that have a condition
+    for pair in agent_task_pairs:
+        if "condition" in pair:
+            condition = pair["condition"]["word"]
+            max_prob_gateway = ""
+            max_prob = 0
+            for key, value in conditions.items():
+                prob = fuzz.ratio(condition, key)
+                if prob > max_prob:
+                    max_prob = prob
+                    max_prob_gateway = value
+            assert max_prob_gateway != "", "No exclusive gateway id found"
+            pair["exclusive_gateway_id"] = max_prob_gateway
+
+    return agent_task_pairs
+
+
 def extract_exclusive_gateways(process_description: str, conditions: list) -> list:
     """
     Extracts the conditions for each exclusive gateway in the process description
@@ -462,7 +458,7 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
             ],
             "start": 54,
             "end": 251,
-            "condition_indices": [{'start': 54, 'end': 101}, {'start': 211, 'end': 251}]
+            "paths": [{'start': 54, 'end': 210}, {'start': 211, 'end': 251}]
         },
     ]
     """
@@ -489,37 +485,44 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
         indices = get_indices(gateway["conditions"], process_description)
         gateway["start"] = indices[0]["start"]
         gateway["end"] = indices[-1]["end"]
-        gateway["condition_indices"] = indices
+        gateway["paths"] = indices
+
+    for exclusive_gateway in exclusive_gateways:
+        for i, path in enumerate(exclusive_gateway["paths"]):
+            if i != len(exclusive_gateway["paths"]) - 1:
+                path["end"] = exclusive_gateway["paths"][i + 1]["start"] - 1
 
     print("Exclusive gateways data:", exclusive_gateways, "\n")
     return exclusive_gateways
 
 
-def add_exclusive_gateway_ids(agent_task_pairs: list, conditions: dict) -> list:
+def add_conditions(conditions: list, agent_task_pairs: list, sentences: list) -> list:
     """
-    Adds exclusive gateway ids to agent-task pairs.
+    Adds conditions and condition ids to agent-task pairs
     Args:
-        agent_task_pairs (list): the list of agent-task pairs
-        conditions (dict): the key is the condition and the value is the exclusive gateway id
+        conditions (list): a list of conditions
+        agent_task_pairs (list): a list of agent-task pairs
+        sentences (list): a list of sentences
     Returns:
-        list: the list of agent-task pairs with exclusive gateway ids
+        list: a list of agent-task pairs with conditions
     """
 
-    updated_agent_task_pairs = []
+    condition_id = 0
+
     for pair in agent_task_pairs:
-        if "condition" in pair:
-            condition = pair["condition"]["word"]
-            max_prob_gateway = ""
-            max_prob = 0
-            for key, value in conditions.items():
-                prob = fuzz.ratio(condition, key)
-                if prob > max_prob:
-                    max_prob = prob
-                    max_prob_gateway = value
-            assert max_prob_gateway != "", "No exclusive gateway id found"
-            pair["exclusive_gateway_id"] = max_prob_gateway
-        updated_agent_task_pairs.append(pair)
-    return updated_agent_task_pairs
+
+        for sent in sentences:
+
+            if pair["task"]["start"] in range(sent["start"], sent["end"]):
+
+                for condition in conditions:
+                    if condition["start"] in range(sent["start"], sent["end"]):
+                        pair["condition"] = condition
+                        pair["condition"]["condition_id"] = f"C{condition_id}"
+                        condition_id += 1
+                        break
+
+    return agent_task_pairs
 
 
 def handle_text_with_conditions(
@@ -546,7 +549,8 @@ def handle_text_with_conditions(
     }
 
     updated_agent_task_pairs = add_exclusive_gateway_ids(
-        updated_agent_task_pairs, conditions_with_exclusive_gateway_ids
+        updated_agent_task_pairs,
+        conditions_with_exclusive_gateway_ids,
     )
 
     return updated_agent_task_pairs, exclusive_gateway_data

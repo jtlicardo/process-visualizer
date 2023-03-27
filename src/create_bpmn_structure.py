@@ -63,7 +63,7 @@ def create_bpmn_structure(
                             gateway["children"][i] = [pg]
                             parallel_gateways.remove(pg)
 
-    write_to_file("bpmn_structure/parallel_gateways.json", parallel_gateways)
+        write_to_file("bpmn_structure/parallel_gateways.json", parallel_gateways)
 
     # [{'id': 'EG0', 'conditions': ['If the company chooses to create a new product',
     # 'If the company chooses to modify an existing product'], 'start': 54, 'end': 359},
