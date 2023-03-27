@@ -459,7 +459,12 @@ class GraphGenerator:
                     f"{previous_element['id']}",
                     f"{element['id']}_S",
                 )
-        
+            else:
+                self.connect(
+                    f"{previous_element['id']}_E",
+                    f"{element['id']}_S",
+                )
+
         if previous_element is None and parent_gateway is not None:
             self.connect(
                 f"{parent_gateway['id']}_S",
