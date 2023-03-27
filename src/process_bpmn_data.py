@@ -9,10 +9,9 @@ from thefuzz import fuzz
 
 import openai_prompts as prompts
 from coreference_resolution.coref import resolve_references
+from create_bpmn_structure import create_bpmn_structure
 from graph_generator import GraphGenerator
 from logging_utils import clear_folder, write_to_file
-from create_bpmn_structure import create_bpmn_structure
-
 
 BPMN_INFORMATION_EXTRACTION_ENDPOINT = "https://api-inference.huggingface.co/models/jtlicardo/bpmn-information-extraction-v2"
 ZERO_SHOT_CLASSIFICATION_ENDPOINT = (
@@ -510,23 +509,70 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
         gateway["end"] = indices[-1]["end"]
         gateway["paths"] = indices
 
-    for exclusive_gateway in exclusive_gateways:
+    # Check for nested exclusive gateways
+    for i, gateway in enumerate(exclusive_gateways):
+        if i != len(exclusive_gateways) - 1:
+            if gateway["end"] > exclusive_gateways[i + 1]["start"]:
+                print("Nested exclusive gateway found")
+                # To the nested gateway, add parent gateway id
+                exclusive_gateways[i + 1]["parent_gateway_id"] = gateway["id"]
+
+    # Update the start and end indices of the paths
+    for eg_idx, exclusive_gateway in enumerate(exclusive_gateways):
         for i, path in enumerate(exclusive_gateway["paths"]):
             if i != len(exclusive_gateway["paths"]) - 1:
                 path["end"] = exclusive_gateway["paths"][i + 1]["start"] - 1
             else:
-                # If this is not the last gateway
-                if exclusive_gateway != exclusive_gateways[-1]:
-                    # Set the end index to the start index of the next gateway
-                    path["end"] = (
-                        exclusive_gateways[
-                            exclusive_gateways.index(exclusive_gateway) + 1
-                        ]["start"]
-                        - 1
+                if "parent_gateway_id" in exclusive_gateway:
+                    # Set the end index to the end of the parent gateway
+                    parent_gateway = next(
+                        (
+                            gateway
+                            for gateway in exclusive_gateways
+                            if gateway["id"] == exclusive_gateway["parent_gateway_id"]
+                        ),
+                        None,
                     )
+                    assert parent_gateway is not None, "No parent gateway found"
+                    path["end"] = parent_gateway["end"] - 1
                 else:
-                    # Set the end index to the end of the process description
-                    path["end"] = len(process_description)
+                    # If this is not the last gateway and the next gateway is not nested
+                    if (
+                        exclusive_gateway != exclusive_gateways[-1]
+                        and "parent_gateway_id" not in exclusive_gateways[eg_idx + 1]
+                    ):
+                        # Set the end index to the start index of the next gateway
+                        path["end"] = (
+                            exclusive_gateways[
+                                exclusive_gateways.index(exclusive_gateway) + 1
+                            ]["start"]
+                            - 1
+                        )
+                    # If this is not the last gateway and the next gateway is nested
+                    elif (
+                        exclusive_gateway != exclusive_gateways[-1]
+                        and "parent_gateway_id" in exclusive_gateways[eg_idx + 1]
+                    ):
+                        # Find the next gateway that is not nested
+                        # If there is no such gateway, set the end index to the end of the process description
+                        next_gateway = next(
+                            (
+                                gateway
+                                for gateway in exclusive_gateways[
+                                    exclusive_gateways.index(exclusive_gateway) + 1 :
+                                ]
+                                if "parent_gateway_id" not in gateway
+                            ),
+                            None,
+                        )
+                        if next_gateway is not None:
+                            path["end"] = next_gateway["start"] - 1
+                        else:
+                            path["end"] = len(process_description)
+                    # If this is the last gateway
+                    elif exclusive_gateway == exclusive_gateways[-1]:
+                        # Set the end index to the end of the process description
+                        path["end"] = len(process_description)
 
     print("Exclusive gateways data:", exclusive_gateways, "\n")
     return exclusive_gateways
