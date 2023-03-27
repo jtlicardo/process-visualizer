@@ -54,13 +54,14 @@ def create_bpmn_structure(
                         ):
                             gateway["children"][i] = pair["content"]["parallel_gateway"]
 
-        # Replace the ids of the nested parallel gateways with the actual gateways
+        # Replace the ids of the nested parallel gateways with the actual gateways; remove the gateway from the list
         for gateway in parallel_gateways:
             for i in range(len(gateway["children"])):
                 if isinstance(gateway["children"][i], str):
                     for pg in parallel_gateways:
                         if pg["id"] == gateway["children"][i]:
-                            gateway["children"][i] = pg
+                            gateway["children"][i] = [pg]
+                            parallel_gateways.remove(pg)
 
     write_to_file("bpmn_structure/parallel_gateways.json", parallel_gateways)
 
