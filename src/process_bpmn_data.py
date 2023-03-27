@@ -11,6 +11,7 @@ import openai_prompts as prompts
 from coreference_resolution.coref import resolve_references
 from graph_generator import GraphGenerator
 from logging_utils import clear_folder, write_to_file
+from create_bpmn_structure import create_bpmn_structure
 
 
 BPMN_INFORMATION_EXTRACTION_ENDPOINT = "https://api-inference.huggingface.co/models/jtlicardo/bpmn-information-extraction-v2"
@@ -460,7 +461,8 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
                 "if the customer is an existing customer"
             ],
             "start": 54,
-            "end": 251
+            "end": 251,
+            "condition_indices": [{'start': 54, 'end': 101}, {'start': 211, 'end': 251}]
         },
     ]
     """
@@ -487,6 +489,7 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
         indices = get_indices(gateway["conditions"], process_description)
         gateway["start"] = indices[0]["start"]
         gateway["end"] = indices[-1]["end"]
+        gateway["condition_indices"] = indices
 
     print("Exclusive gateways data:", exclusive_gateways, "\n")
     return exclusive_gateways
@@ -547,10 +550,6 @@ def handle_text_with_conditions(
     )
 
     return updated_agent_task_pairs, exclusive_gateway_data
-
-
-def create_bpmn_structure(agent_task_pairs):
-    pass
 
 
 def should_resolve_coreferences(text):
@@ -646,7 +645,33 @@ def get_parallel_gateways(text):
     return indices
 
 
-def handle_text_with_parallel_keywords(process_description):
+def handle_text_with_parallel_keywords(agent_task_pairs, process_description):
+    """
+    Extracts parallel gateways and paths from the process description.
+    Args:
+        process_description (str): the process description
+    Returns:
+        list: the list of parallel gateways
+
+    Example output:
+    [
+        {
+            "id": "PG0",
+            "start": 0,
+            "end": 100,
+            "paths": [
+                {
+                    "start": 0,
+                    "end": 50,
+                },
+                {
+                    "start": 50,
+                    "end": 100,
+                },
+            ],
+        },
+    ]
+    """
 
     parallel_gateways = []
     parallel_gateway_id = 0
@@ -682,7 +707,29 @@ def handle_text_with_parallel_keywords(process_description):
 
     print("Parallel gateway data:", parallel_gateways, "\n")
 
-    return parallel_gateways
+    for pair in agent_task_pairs:
+        for gateway in parallel_gateways:
+            if (
+                pair["task"]["start"] >= gateway["start"]
+                and pair["task"]["end"] <= gateway["end"]
+            ):
+                if "parent" not in gateway:
+                    pair["parallel_gateway"] = gateway["id"]
+                else:
+                    pair["parent_gateway"] = gateway["parent"]
+                    pair["parallel_gateway"] = gateway["id"]
+            for path in gateway["paths"]:
+                if (
+                    pair["task"]["start"] >= path["start"]
+                    and pair["task"]["end"] <= path["end"]
+                ):
+                    if "parent" not in gateway:
+                        pair["parallel_path"] = gateway["paths"].index(path)
+                    else:
+                        pair["parent_path"] = pair["parallel_path"]
+                        pair["parallel_path"] = gateway["paths"].index(path)
+
+    return agent_task_pairs, parallel_gateways
 
 
 def process_text(text):
@@ -704,18 +751,24 @@ def process_text(text):
         return
 
     agents, tasks, conditions, process_info = extract_all_entities(data)
+    parallel_gateway_data = None
+    exclusive_gateway_data = None
 
     sents_data = create_sentence_data(text)
 
     agent_task_pairs = create_agent_task_pairs(agents, tasks, sents_data)
 
     if has_parallel_keywords(text):
-        parallel_gateway_data = handle_text_with_parallel_keywords(text)
+        agent_task_pairs, parallel_gateway_data = handle_text_with_parallel_keywords(
+            agent_task_pairs, text
+        )
+        write_to_file("parallel_gateway_data.json", parallel_gateway_data)
 
     if len(conditions) > 0:
         agent_task_pairs, exclusive_gateway_data = handle_text_with_conditions(
             agent_task_pairs, conditions, sents_data, text
         )
+        write_to_file("exclusive_gateway_data.json", exclusive_gateway_data)
 
     if len(process_info) > 0:
         process_info = batch_classify_process_info(process_info)
@@ -729,11 +782,13 @@ def process_text(text):
 
     write_to_file("agent_task_pairs.json", agent_task_pairs)
 
+    structure = create_bpmn_structure(
+        agent_task_pairs, parallel_gateway_data, exclusive_gateway_data
+    )
+
+    write_to_file("bpmn_structure.json", structure)
+
     return
-
-    output = create_bpmn_structure(agent_task_pairs)
-
-    write_to_file("final_output.json", output)
 
     return output
 

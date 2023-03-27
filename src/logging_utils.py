@@ -1,10 +1,14 @@
 import json
 import os
+import shutil
 
 
 def clear_folder(folder):
-    for file in os.listdir(folder):
-        os.remove(os.path.join(folder, file))
+    for root, dirs, files in os.walk(folder):
+        for file in files:
+            os.remove(os.path.join(root, file))
+        for dir in dirs:
+            shutil.rmtree(os.path.join(root, dir))
 
 
 def write_to_file(filename, input):

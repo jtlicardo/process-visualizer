@@ -504,10 +504,10 @@ class GraphGenerator:
 
 
 if __name__ == "__main__":
-    # Used for debugging purposes
+    # Used for testing
     import json
 
-    with open("output_logs/final_output.txt", "r") as file:
+    with open("output_logs/bpmn_structure.json", "r") as file:
         content = file.read()
     data = json.loads(content)
     bpmn = GraphGenerator(data, notebook=False)
