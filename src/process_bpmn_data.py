@@ -412,14 +412,17 @@ def add_loops(agent_task_pairs, sentences, loop_sentences):
     return updated_agent_task_pairs
 
 
-def add_exclusive_gateway_ids(agent_task_pairs: list, conditions: dict) -> list:
+def add_exclusive_gateway_ids(
+    agent_task_pairs: list, conditions: dict, exlusive_gateway_data: list
+) -> list:
     """
-    Adds exclusive gateway ids to agent-task pairs.
+    Adds exclusive gateway ids and path ids to agent-task pairs.
     Args:
         agent_task_pairs (list): the list of agent-task pairs
         conditions (dict): the key is the condition and the value is the exclusive gateway id
+        exlusive_gateway_data (list): the list of exclusive gateways
     Returns:
-        list: the list of agent-task pairs with exclusive gateway ids
+        list: the list of agent-task pairs
     """
 
     # Adding the exclusive gateway ids to the agent-task pairs that have a condition
@@ -435,6 +438,26 @@ def add_exclusive_gateway_ids(agent_task_pairs: list, conditions: dict) -> list:
                     max_prob_gateway = value
             assert max_prob_gateway != "", "No exclusive gateway id found"
             pair["exclusive_gateway_id"] = max_prob_gateway
+
+    # Adding exclusive gateway path ids to the agent-task pairs
+    for pair in agent_task_pairs:
+        if "exclusive_gateway_id" in pair:
+            # Find exclusive gateway with the same id
+            exclusive_gateway = next(
+                (
+                    gateway
+                    for gateway in exlusive_gateway_data
+                    if gateway["id"] == pair["exclusive_gateway_id"]
+                ),
+                None,
+            )
+            assert exclusive_gateway is not None, "No exclusive gateway found"
+            # Assign path id based on start index of the task
+            for path in exclusive_gateway["paths"]:
+                if pair["task"]["start"] in range(path["start"], path["end"]):
+                    pair["exclusive_gateway_path_id"] = exclusive_gateway[
+                        "paths"
+                    ].index(path)
 
     return agent_task_pairs
 
@@ -458,7 +481,7 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
             ],
             "start": 54,
             "end": 251,
-            "paths": [{'start': 54, 'end': 210}, {'start': 211, 'end': 251}]
+            "paths": [{'start': 54, 'end': 210}, {'start': 211, 'end': 321}]
         },
     ]
     """
@@ -491,6 +514,19 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
         for i, path in enumerate(exclusive_gateway["paths"]):
             if i != len(exclusive_gateway["paths"]) - 1:
                 path["end"] = exclusive_gateway["paths"][i + 1]["start"] - 1
+            else:
+                # If this is not the last gateway
+                if exclusive_gateway != exclusive_gateways[-1]:
+                    # Set the end index to the start index of the next gateway
+                    path["end"] = (
+                        exclusive_gateways[
+                            exclusive_gateways.index(exclusive_gateway) + 1
+                        ]["start"]
+                        - 1
+                    )
+                else:
+                    # Set the end index to the end of the process description
+                    path["end"] = len(process_description)
 
     print("Exclusive gateways data:", exclusive_gateways, "\n")
     return exclusive_gateways
@@ -551,6 +587,7 @@ def handle_text_with_conditions(
     updated_agent_task_pairs = add_exclusive_gateway_ids(
         updated_agent_task_pairs,
         conditions_with_exclusive_gateway_ids,
+        exclusive_gateway_data,
     )
 
     return updated_agent_task_pairs, exclusive_gateway_data
