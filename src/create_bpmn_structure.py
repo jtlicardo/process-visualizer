@@ -6,7 +6,11 @@ def create_bpmn_structure(
 ):
 
     for pair in agent_task_pairs:
-        pair = {"type": "task", "content": pair}
+        pair["type"] = "task"
+        pair["content"] = pair.copy()
+        for key in pair.copy():
+            if key != "type" and key != "content":
+                del pair[key]
 
     parallel_gateways = []
     exclusive_gateways = []
@@ -58,9 +62,7 @@ def create_bpmn_structure(
                         if pg["id"] == gateway["children"][i]:
                             gateway["children"][i] = pg
 
-    write_to_file(
-        "output_logs/bpmn_structure/parallel_gateways.json", parallel_gateways
-    )
+    write_to_file("bpmn_structure/parallel_gateways.json", parallel_gateways)
 
     # [{'id': 'EG0', 'conditions': ['If the company chooses to create a new product',
     # 'If the company chooses to modify an existing product'], 'start': 54, 'end': 359},
@@ -116,4 +118,4 @@ if __name__ == "__main__":
     structure = create_bpmn_structure(
         agent_task_pairs, parallel_gateway_data, exclusive_gateway_data
     )
-    write_to_file("output_logs/bpmn_structure.json", structure)
+    write_to_file("bpmn_structure.json", structure)

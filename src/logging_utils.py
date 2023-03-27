@@ -15,6 +15,7 @@ def write_to_file(filename, input):
 
     if not os.path.exists("./output_logs"):
         os.makedirs("./output_logs")
+        os.makedirs("./output_logs/bpmn_structure")
 
     if isinstance(input, str):
         with open("./output_logs/" + filename, "w") as file:
