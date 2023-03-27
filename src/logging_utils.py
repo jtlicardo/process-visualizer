@@ -13,8 +13,7 @@ def clear_folder(folder):
 
 def write_to_file(filename, input):
 
-    if not os.path.exists("./output_logs"):
-        os.makedirs("./output_logs")
+    if not os.path.exists("./output_logs/bpmn_structure"):
         os.makedirs("./output_logs/bpmn_structure")
 
     if isinstance(input, str):

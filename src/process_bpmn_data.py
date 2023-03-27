@@ -788,9 +788,7 @@ def process_text(text):
 
     write_to_file("bpmn_structure.json", structure)
 
-    return
-
-    return output
+    return structure
 
 
 def generate_graph_pdf(input, notebook):
