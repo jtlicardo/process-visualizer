@@ -412,51 +412,23 @@ def add_loops(agent_task_pairs, sentences, loop_sentences):
 
 
 def add_exclusive_gateway_ids(
-    agent_task_pairs: list, conditions: dict, exlusive_gateway_data: list
+    agent_task_pairs: list, exlusive_gateway_data: list
 ) -> list:
     """
     Adds exclusive gateway ids and path ids to agent-task pairs.
     Args:
         agent_task_pairs (list): the list of agent-task pairs
-        conditions (dict): the key is the condition and the value is the exclusive gateway id
         exlusive_gateway_data (list): the list of exclusive gateways
     Returns:
         list: the list of agent-task pairs
     """
 
-    # Adding the exclusive gateway ids to the agent-task pairs that have a condition
     for pair in agent_task_pairs:
-        if "condition" in pair:
-            condition = pair["condition"]["word"]
-            max_prob_gateway = ""
-            max_prob = 0
-            for key, value in conditions.items():
-                prob = fuzz.ratio(condition, key)
-                if prob > max_prob:
-                    max_prob = prob
-                    max_prob_gateway = value
-            assert max_prob_gateway != "", "No exclusive gateway id found"
-            pair["exclusive_gateway_id"] = max_prob_gateway
-
-    # Adding exclusive gateway path ids to the agent-task pairs
-    for pair in agent_task_pairs:
-        if "exclusive_gateway_id" in pair:
-            # Find exclusive gateway with the same id
-            exclusive_gateway = next(
-                (
-                    gateway
-                    for gateway in exlusive_gateway_data
-                    if gateway["id"] == pair["exclusive_gateway_id"]
-                ),
-                None,
-            )
-            assert exclusive_gateway is not None, "No exclusive gateway found"
-            # Assign path id based on start index of the task
-            for path in exclusive_gateway["paths"]:
+        for gateway in exlusive_gateway_data:
+            for path in gateway["paths"]:
                 if pair["task"]["start"] in range(path["start"], path["end"]):
-                    pair["exclusive_gateway_path_id"] = exclusive_gateway[
-                        "paths"
-                    ].index(path)
+                    pair["exclusive_gateway_id"] = gateway["id"]
+                    pair["exclusive_gateway_path_id"] = gateway["paths"].index(path)
 
     return agent_task_pairs
 
@@ -485,6 +457,13 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
     ]
     """
 
+    response = prompts.extract_exclusive_gateways(process_description)
+    pattern = r"Exclusive gateway (\d+): (.+)"
+    matches = re.findall(pattern, response)
+    gateways = [match[1] for match in matches]
+    gateway_indices = get_indices(gateways, process_description)
+    print("Exclusive gateway indices:", gateway_indices, "\n")
+
     condition_string = ""
     for condition in conditions:
         condition_text = condition["word"]
@@ -494,7 +473,6 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
             condition_string += f", '{condition_text}'"
 
     response = prompts.extract_gateway_conditions(process_description, condition_string)
-
     pattern = r"Exclusive gateway (\d+): (.+)"
     matches = re.findall(pattern, response)
     gateway_conditions = [match[1] for match in matches]
@@ -504,10 +482,10 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
     ]
 
     for gateway in exclusive_gateways:
-        indices = get_indices(gateway["conditions"], process_description)
-        gateway["start"] = indices[0]["start"]
-        gateway["end"] = indices[-1]["end"]
-        gateway["paths"] = indices
+        condition_indices = get_indices(gateway["conditions"], process_description)
+        gateway["start"] = gateway_indices[exclusive_gateways.index(gateway)]["start"]
+        gateway["end"] = gateway_indices[exclusive_gateways.index(gateway)]["end"]
+        gateway["paths"] = condition_indices
 
     # Check for nested exclusive gateways
     for i, gateway in enumerate(exclusive_gateways):
@@ -558,7 +536,7 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
                         and "parent_gateway_id" in exclusive_gateways[eg_idx + 1]
                     ):
                         # Find the next gateway that is not nested
-                        # If there is no such gateway, set the end index to the end of the process description
+                        # If there is no such gateway, set the end index to the end of the gateway
                         next_gateway = next(
                             (
                                 gateway
@@ -572,11 +550,11 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
                         if next_gateway is not None:
                             path["end"] = next_gateway["start"] - 1
                         else:
-                            path["end"] = len(process_description)
+                            path["end"] = exclusive_gateway["end"]
                     # If this is the last gateway
                     elif exclusive_gateway == exclusive_gateways[-1]:
-                        # Set the end index to the end of the process description
-                        path["end"] = len(process_description)
+                        # Set the end index to the end of the gateway
+                        path["end"] = exclusive_gateway["end"]
 
     # Add parent gateway path id to the nested gateways
     for eg_idx, exclusive_gateway in enumerate(exclusive_gateways):
@@ -646,15 +624,9 @@ def handle_text_with_conditions(
     updated_agent_task_pairs = add_conditions(conditions, agent_task_pairs, sents_data)
 
     exclusive_gateway_data = extract_exclusive_gateways(process_desc, conditions)
-    conditions_with_exclusive_gateway_ids = {
-        condition: d["id"]
-        for d in exclusive_gateway_data
-        for condition in d["conditions"]
-    }
 
     updated_agent_task_pairs = add_exclusive_gateway_ids(
         updated_agent_task_pairs,
-        conditions_with_exclusive_gateway_ids,
         exclusive_gateway_data,
     )
 
