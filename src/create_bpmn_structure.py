@@ -7,7 +7,7 @@ def create_bpmn_structure(
 
     for pair in agent_task_pairs:
         pair["content"] = pair.copy()
-        pair["type"] = "task"
+        pair["type"] = "task" if "task" in pair else "loop"
         for key in pair.copy():
             if key != "type" and key != "content":
                 del pair[key]
