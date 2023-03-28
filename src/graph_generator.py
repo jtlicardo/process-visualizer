@@ -1,4 +1,5 @@
 import graphviz
+from logging_utils import write_to_file
 
 
 class GraphGenerator:
@@ -12,8 +13,6 @@ class GraphGenerator:
         self.notebook = notebook
 
         self.data = data
-
-        self.create_start_end_events = True
 
         self.last_completed_type = ""
         self.last_completed_type_id = 0  # i.e. counter
@@ -83,6 +82,18 @@ class GraphGenerator:
                 self.bpmn.node(name=f"END_{end_event_counter}", label="END")
                 self.connect(str(key), f"END_{end_event_counter}")
                 end_event_counter += 1
+
+    def clean_up_graph(self):
+        for k, v in self.tracker.copy().items():
+            if k.startswith("EG") and k.endswith("E") and len(v["before"]) == 1:
+                self.connect(v["before"][0], v["after"][0])
+                print(k)
+                with open("bpmn.gv", "r") as file:
+                    data = file.readlines()
+                with open("cleaned_bpmn.gv", "w") as file:
+                    for line in data:
+                        if k not in line:
+                            file.write(line)
 
     def contains_nested_lists(self, list_parameter):
         assert isinstance(list_parameter, list)
@@ -250,7 +261,7 @@ class GraphGenerator:
 
         if "condition" in element["content"]:
             self.connect(
-                f"EG{self.exclusive_gateway_counter - 1}_S",
+                f"{parent_gateway['id']}_S",
                 f"T{self.task_counter - 1}",
                 label_parameter=element["content"]["condition"]["word"],
             )
@@ -318,6 +329,7 @@ class GraphGenerator:
                 and "single_condition" not in parent_gateway
                 and "has_loops" not in parent_gateway
                 and "process_end_event" not in element["content"]
+                and "has_end_events" not in parent_gateway
             ):
                 self.connect(
                     f"{element['id']}",
@@ -447,6 +459,7 @@ class GraphGenerator:
                 last
                 and "single_condition" not in parent_gateway
                 and "has_end_events" not in parent_gateway
+                and "has_end_events" not in element
             ):
                 self.connect(
                     f"{element['id']}_E",
@@ -501,14 +514,17 @@ class GraphGenerator:
                     element=element, type="exclusive", previous_element=previous_element
                 )
 
-            if global_index == len(self.data) - 1 and self.create_start_end_events:
-                self.create_start_and_end_events()
+        self.create_start_and_end_events()
+        self.clean_up_graph()
+
+        write_to_file("graph_data.json", self.tracker)
 
     def show(self):
         if self.notebook == True:
             self.bpmn.save()
         else:
-            self.bpmn.view()
+            src = graphviz.Source.from_file("cleaned_bpmn.gv")
+            src.render("cleaned_bpmn.gv", view=True)
 
     def save_file(self):
         self.bpmn.render(outfile="./src/bpmn.jpeg")
