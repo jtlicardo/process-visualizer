@@ -75,7 +75,50 @@ def create_bpmn_structure(
                 "id": gateway["id"],
                 "children": children,
             }
-            exclusive_gateways.append(exclusive_gateway)
+
+            # Only the first agent pair in the children list can contain the "condition" key
+            for i in range(len(exclusive_gateway["children"])):
+                for j in range(len(exclusive_gateway["children"][i])):
+                    if (
+                        j > 0
+                        and "condition"
+                        in exclusive_gateway["children"][i][j]["content"]
+                    ):
+                        del exclusive_gateway["children"][i][j]["content"]["condition"]
+
+            if "parent_gateway_id" not in gateway:
+                exclusive_gateways.append(exclusive_gateway)
+            else:
+                # Append the nested gateway to the specified path
+                # If there are any tasks already in the path, append the nested gateway after the first task that comes before the nested gateway
+                parent_gateway = next(
+                    (
+                        pg
+                        for pg in exclusive_gateways
+                        if pg["id"] == gateway["parent_gateway_id"]
+                    ),
+                    None,
+                )
+                if parent_gateway is not None:
+                    for i in range(len(parent_gateway["children"])):
+                        if (
+                            len(parent_gateway["children"][i]) > 0
+                            and i == gateway["parent_gateway_path_id"]
+                        ):
+                            for j in range(len(parent_gateway["children"][i])):
+                                if (
+                                    parent_gateway["children"][i][j]["type"] == "task"
+                                    and parent_gateway["children"][i][j]["content"][
+                                        "task"
+                                    ]["start"]
+                                    < gateway["start"]
+                                ):
+                                    parent_gateway["children"][i].insert(
+                                        j + 1, exclusive_gateway
+                                    )
+                                    break
+
+        write_to_file("bpmn_structure/exclusive_gateways.json", exclusive_gateways)
 
     added = []
 
