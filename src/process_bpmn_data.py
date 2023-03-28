@@ -524,7 +524,7 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
                 path["end"] = exclusive_gateway["paths"][i + 1]["start"] - 1
             else:
                 if "parent_gateway_id" in exclusive_gateway:
-                    # Set the end index to the end of the parent gateway
+                    # Set the end index to the end of the parent gateway path
                     parent_gateway = next(
                         (
                             gateway
@@ -534,7 +534,11 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
                         None,
                     )
                     assert parent_gateway is not None, "No parent gateway found"
-                    path["end"] = parent_gateway["end"] - 1
+                    for parent_path in parent_gateway["paths"]:
+                        if path["start"] in range(
+                            parent_path["start"], parent_path["end"]
+                        ):
+                            path["end"] = parent_path["end"] - 1
                 else:
                     # If this is not the last gateway and the next gateway is not nested
                     if (
@@ -573,7 +577,7 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
                     elif exclusive_gateway == exclusive_gateways[-1]:
                         # Set the end index to the end of the process description
                         path["end"] = len(process_description)
-    
+
     # Add parent gateway path id to the nested gateways
     for eg_idx, exclusive_gateway in enumerate(exclusive_gateways):
         if "parent_gateway_id" in exclusive_gateway:
