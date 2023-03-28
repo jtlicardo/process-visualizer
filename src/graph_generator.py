@@ -1,4 +1,5 @@
 import graphviz
+from os.path import exists
 from logging_utils import write_to_file
 
 
@@ -84,6 +85,7 @@ class GraphGenerator:
                 end_event_counter += 1
 
     def clean_up_graph(self):
+        self.bpmn.save()
         for k, v in self.tracker.copy().items():
             if k.startswith("EG") and k.endswith("E") and len(v["before"]) == 1:
                 self.connect(v["before"][0], v["after"][0])
@@ -150,6 +152,9 @@ class GraphGenerator:
                 elif child[0]["type"] == "task":
                     if "condition" in child[0]["content"]:
                         count += 1
+                elif child[0]["type"] == "loop":
+                    if "condition" in child[0]["content"]:
+                        count += 1
             elif "content" in child and "condition" in child["content"]:
                 count += 1
         return count
@@ -159,8 +164,13 @@ class GraphGenerator:
         for child in gateway["children"]:
             if isinstance(child, list):
                 for element in child:
-                    if element["type"] == "loop":
-                        return True
+                    if isinstance(element, dict):
+                        if element["type"] == "loop":
+                            return True
+                    elif isinstance(element, list):
+                        for e in element:
+                            if e["type"] == "loop":
+                                return True
             else:
                 if child["type"] == "loop":
                     return True
@@ -171,9 +181,15 @@ class GraphGenerator:
         for child in gateway["children"]:
             if isinstance(child, list):
                 for element in child:
-                    if element["type"] == "task":
-                        if "process_end_event" in element["content"]:
-                            return True
+                    if isinstance(element, dict):
+                        if element["type"] == "task":
+                            if "process_end_event" in element["content"]:
+                                return True
+                    elif isinstance(element, list):
+                        for e in element:
+                            if e["type"] == "task":
+                                if "process_end_event" in e["content"]:
+                                    return True
             else:
                 if child["type"] == "task":
                     if "process_end_event" in child["content"]:
@@ -360,9 +376,22 @@ class GraphGenerator:
                 )
             elif element["type"] == "loop":
                 assert parent_gateway["type"] == "exclusive"
-                assert previous_element is not None
                 assert last is True
-                self.connect(f"{previous_element['id']}", element["content"]["go_to"])
+                if previous_element is not None:
+                    if previous_element["type"] == "task":
+                        self.connect(
+                            f"{previous_element['id']}", element["content"]["go_to"]
+                        )
+                    else:
+                        self.connect(
+                            f"{previous_element['id']}_E", element["content"]["go_to"]
+                        )
+                else:
+                    self.connect(
+                        f"{parent_gateway['id']}_S",
+                        element["content"]["go_to"],
+                        label_parameter=element["content"]["condition"]["word"],
+                    )
             elif element["type"] == "exclusive":
                 self.handle_gateway(
                     element=element,
@@ -523,8 +552,9 @@ class GraphGenerator:
         if self.notebook == True:
             self.bpmn.save()
         else:
-            src = graphviz.Source.from_file("cleaned_bpmn.gv")
-            src.render("cleaned_bpmn.gv", view=True)
+            file = "cleaned_bpmn.gv" if exists("cleaned_bpmn.gv") else "bpmn.gv"
+            src = graphviz.Source.from_file(file)
+            src.render(file, view=True)
 
     def save_file(self):
         self.bpmn.render(outfile="./src/bpmn.jpeg")
