@@ -13,9 +13,9 @@ The app supports the following BPMN elements:
 
 1. Clone the repo
 1. Install the required dependencies: `pip install -r requirements.txt`
-1. Download the necessary spaCy models:
-  1. `python -m spacy download en_core_web_sm`
-  1. `python -m spacy download en_core_web_md`
+1. Download the necessary spaCy models:  
+    `python -m spacy download en_core_web_sm`  
+    `python -m spacy download en_core_web_md`
 1. Create an .env file in the root of the `src` folder with your OpenAI API key as an environment variable: `OPENAI_KEY=<your_key>`
 1. Run the script by running `python .\src\main.py -t "Textual description of the process"`. Alternatively, you can run the script by providing a path to a file containing the textual description of the process: `python .\src\main.py -f <path_to_file.txt> `
 
