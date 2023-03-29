@@ -1,6 +1,8 @@
-import graphviz
-from os.path import exists
 from os import remove
+from os.path import exists
+
+import graphviz
+
 from logging_utils import write_to_file
 
 
