@@ -86,6 +86,45 @@ def extract_bpmn_data(text: str) -> list:
     return data
 
 
+def fix_bpmn_data(data: list) -> list:
+    """
+    If the model that extracts BPMN data splits a word into multiple tokens for some reason,
+    this function fixes the output by combining the tokens into a single word.
+    Args:
+        data (list): the model output
+    Returns:
+        list: the model output with the tokens combined into a single word
+    """
+
+    data_copy = data.copy()
+
+    for i in range(len(data_copy) - 1):
+        if (
+            data_copy[i]["entity_group"] == "TASK"
+            and data_copy[i + 1]["entity_group"] == "TASK"
+            and data_copy[i]["end"] == data_copy[i + 1]["start"]
+        ):
+            print("Fixing BPMN data...")
+            print(
+                "Combining",
+                data_copy[i]["word"],
+                "and",
+                data_copy[i + 1]["word"],
+                "into one entity\n",
+            )
+            if data_copy[i + 1]["word"].startswith("##"):
+                data[i]["word"] = data[i]["word"] + data[i + 1]["word"][2:]
+            else:
+                data[i]["word"] = data[i]["word"] + data[i + 1]["word"]
+            data[i]["end"] = data[i + 1]["end"]
+            data[i]["score"] = max(data[i]["score"], data[i + 1]["score"])
+            data.pop(i + 1)
+
+    write_to_file("model_output_fixed.json", data)
+
+    return data
+
+
 def classify_process_info(text: str) -> dict:
     """
     Classifies a PROCESS_INFO entity by calling the model endpoint hosted on Hugging Face.
@@ -867,6 +906,8 @@ def process_text(text):
 
     if not data:
         return
+
+    data = fix_bpmn_data(data)
 
     agents, tasks, conditions, process_info = extract_all_entities(data)
     parallel_gateway_data = None
