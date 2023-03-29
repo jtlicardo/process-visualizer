@@ -19,12 +19,12 @@ def create_bpmn_structure(
 
     if parallel_gateway_data is not None:
         parallel_gateways = create_parallel_gateways(
-            parallel_gateway_data, agent_task_pairs_to_add
+            parallel_gateway_data, agent_task_pairs, agent_task_pairs_to_add
         )
 
     if exclusive_gateway_data is not None:
         exclusive_gateways = create_exclusive_gateways(
-            exclusive_gateway_data, agent_task_pairs_to_add
+            exclusive_gateway_data, agent_task_pairs, agent_task_pairs_to_add
         )
 
     for gateway in parallel_gateways:
@@ -68,7 +68,9 @@ def create_bpmn_structure(
     return structure
 
 
-def create_parallel_gateways(parallel_gateway_data, agent_task_pairs_to_add):
+def create_parallel_gateways(
+    parallel_gateway_data, agent_task_pairs, agent_task_pairs_to_add
+):
 
     parallel_gateways = []
 
@@ -120,7 +122,9 @@ def create_parallel_gateways(parallel_gateway_data, agent_task_pairs_to_add):
     return parallel_gateways
 
 
-def create_exclusive_gateways(exclusive_gateway_data, agent_task_pairs_to_add):
+def create_exclusive_gateways(
+    exclusive_gateway_data, agent_task_pairs, agent_task_pairs_to_add
+):
 
     exclusive_gateways = []
 
