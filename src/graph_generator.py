@@ -507,7 +507,11 @@ class GraphGenerator:
                     f"{element['id']}_S",
                 )
 
-        if previous_element is None and parent_gateway is not None:
+        if (
+            previous_element is None
+            and parent_gateway is not None
+            and "condition" not in element
+        ):
             self.connect(
                 f"{parent_gateway['id']}_S",
                 f"{element['id']}_S",
