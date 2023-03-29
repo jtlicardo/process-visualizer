@@ -809,7 +809,7 @@ def handle_text_with_parallel_keywords(agent_task_pairs, process_description):
         parallel_gateway_id += 1
         parallel_gateways.append(gateway)
 
-    for gateway in parallel_gateways:
+    for gateway in parallel_gateways.copy():
         for path in gateway["paths"]:
             path_text = process_description[path["start"] : path["end"]]
             if has_parallel_keywords(path_text):
