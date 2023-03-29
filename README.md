@@ -65,5 +65,3 @@ customer searches for the goods and picks up the goods.*
 <img src="images/image_4.png" width="600">
 </p>
 </details>
-
----
