@@ -38,10 +38,7 @@ customer searches for the goods and picks up the goods.*
 
 ### Example #4
 
-*The customer decides if he wants to finance or pay in cash. If the customer chooses to finance, the
-customer will need to fill out a loan application. Meanwhile, the manager checks the customer's info.
-If the customer chooses to pay in cash, the customer will need to bring the total cost of the car to
-the dealership in order to complete the transaction.*
+*The customer decides if he wants to finance or pay in cash. If the customer chooses to finance, two activities will happen in parallel: the customer will fill out a loan application and the manager will check the customer's info. If the customer chooses to pay in cash, the customer will need to bring the total amount to the dealership in order to complete the transaction.*
 
 <p align="center">
 <img src="images/image_4.png" width="700">
