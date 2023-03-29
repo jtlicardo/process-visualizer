@@ -1,5 +1,6 @@
 import graphviz
 from os.path import exists
+from os import remove
 from logging_utils import write_to_file
 
 
@@ -85,17 +86,18 @@ class GraphGenerator:
                 end_event_counter += 1
 
     def clean_up_graph(self):
-        self.bpmn.save()
         for k, v in self.tracker.copy().items():
             if k.startswith("EG") and k.endswith("E") and len(v["before"]) == 1:
                 self.connect(v["before"][0], v["after"][0])
-                print(k)
+                print(f"Removing {k} and all adjacent edges")
+                self.bpmn.save()
                 with open("bpmn.gv", "r") as file:
                     data = file.readlines()
                 with open("cleaned_bpmn.gv", "w") as file:
                     for line in data:
                         if k not in line:
                             file.write(line)
+        self.bpmn.save()
 
     def contains_nested_lists(self, list_parameter):
         assert isinstance(list_parameter, list)
@@ -526,6 +528,8 @@ class GraphGenerator:
 
     def generate_graph(self):
 
+        self.remove_old_files()
+
         if isinstance(self.data, dict):
             self.data = [self.data]
 
@@ -551,6 +555,16 @@ class GraphGenerator:
         self.clean_up_graph()
 
         write_to_file("graph_data.json", self.tracker)
+
+    def remove_old_files(self):
+        if exists("bpmn.gv"):
+            remove("bpmn.gv")
+        if exists("cleaned_bpmn.gv"):
+            remove("cleaned_bpmn.gv")
+        if exists("bpmn.gv.pdf"):
+            remove("bpmn.gv.pdf")
+        if exists("cleaned_bpmn.gv.pdf"):
+            remove("cleaned_bpmn.gv.pdf")
 
     def show(self):
         if self.notebook == True:
