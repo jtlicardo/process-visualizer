@@ -255,4 +255,4 @@ if __name__ == "__main__":
     structure = create_bpmn_structure(
         agent_task_pairs, parallel_gateway_data, exclusive_gateway_data
     )
-    write_to_file("bpmn_structure.json", structure)
+    write_to_file("bpmn_structure/bpmn_structure.json", structure)
