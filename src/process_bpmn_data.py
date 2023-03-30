@@ -511,14 +511,21 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
         else:
             condition_string += f", '{condition_text}'"
 
-    response = prompts.extract_gateway_conditions(process_description, condition_string)
-    pattern = r"Exclusive gateway (\d+): (.+)"
-    matches = re.findall(pattern, response)
-    gateway_conditions = [match[1] for match in matches]
-    exclusive_gateways = [
-        {"id": f"EG{i}", "conditions": [x.strip() for x in gateway.split("||")]}
-        for i, gateway in enumerate(gateway_conditions)
-    ]
+    exclusive_gateways = []
+
+    if len(conditions) == 2 and len(gateways) == 1:
+        exclusive_gateways = [{"id": "EG0", "conditions": conditions}]
+    else:
+        response = prompts.extract_gateway_conditions(
+            process_description, condition_string
+        )
+        pattern = r"Exclusive gateway (\d+): (.+)"
+        matches = re.findall(pattern, response)
+        gateway_conditions = [match[1] for match in matches]
+        exclusive_gateways = [
+            {"id": f"EG{i}", "conditions": [x.strip() for x in gateway.split("||")]}
+            for i, gateway in enumerate(gateway_conditions)
+        ]
 
     for gateway in exclusive_gateways:
         condition_indices = get_indices(gateway["conditions"], process_description)
