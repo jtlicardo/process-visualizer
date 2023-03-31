@@ -831,7 +831,8 @@ def handle_text_with_parallel_keywords(agent_task_pairs, process_description):
                     "start": indices[0]["start"],
                     "end": indices[-1]["end"],
                     "paths": indices,
-                    "parent": gateway["id"],
+                    "parallel_parent": gateway["id"],
+                    "parallel_parent_path": gateway["paths"].index(path),
                 }
                 parallel_gateway_id += 1
                 parallel_gateways.append(gateway)

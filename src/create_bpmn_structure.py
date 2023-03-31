@@ -21,11 +21,13 @@ def create_bpmn_structure(
         parallel_gateways = create_parallel_gateways(
             parallel_gateway_data, agent_task_pairs, agent_task_pairs_to_add
         )
+        write_to_file("bpmn_structure/parallel_gateways_1.json", parallel_gateways)
 
     if exclusive_gateway_data is not None:
         exclusive_gateways = create_exclusive_gateways(
             exclusive_gateway_data, agent_task_pairs, agent_task_pairs_to_add
         )
+        write_to_file("bpmn_structure/exclusive_gateways_1.json", exclusive_gateways)
 
     for gateway in parallel_gateways:
         if "exclusive_parent" in gateway:
@@ -35,8 +37,8 @@ def create_bpmn_structure(
         if "parallel_parent" in gateway:
             add_nested_exclusive_gateway(parallel_gateways, exclusive_gateways, gateway)
 
-    write_to_file("bpmn_structure/parallel_gateways.json", parallel_gateways)
-    write_to_file("bpmn_structure/exclusive_gateways.json", exclusive_gateways)
+    write_to_file("bpmn_structure/parallel_gateways_2.json", parallel_gateways)
+    write_to_file("bpmn_structure/exclusive_gateways_2.json", exclusive_gateways)
 
     parallel_index = 0
     exclusive_index = 0
@@ -66,6 +68,44 @@ def create_bpmn_structure(
     structure.extend(exclusive_gateways[exclusive_index:])
 
     return structure
+
+
+def nest_gateways(exclusive_gateways, parallel_gateways):
+
+    all_gateways = exclusive_gateways + parallel_gateways
+
+    def is_nested(inner, outer):
+        return inner["start"] > outer["start"] and inner["end"] < outer["end"]
+
+    def find_parent(gateway):
+        parent = None
+        for candidate in all_gateways:
+            if is_nested(gateway, candidate):
+                if parent is None or is_nested(candidate, parent):
+                    parent = candidate
+        return parent
+
+    def sort_gateways(gateways):
+        gateways.sort(key=lambda x: x["start"])
+        for g in gateways:
+            if "children" in g:
+                sort_gateways(g["children"])
+
+    for gateway in all_gateways:
+        gateway["children"] = []
+
+    for gateway in all_gateways:
+        parent = find_parent(gateway)
+        if parent is not None:
+            parent["children"].append(gateway)
+
+    top_level_gateways = [
+        gateway for gateway in all_gateways if find_parent(gateway) is None
+    ]
+
+    sort_gateways(top_level_gateways)
+
+    return top_level_gateways
 
 
 def create_parallel_gateways(
