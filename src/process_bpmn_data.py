@@ -806,13 +806,13 @@ def handle_text_with_parallel_keywords(agent_task_pairs, process_description):
     gateway_indices = get_parallel_gateways(process_description)
 
     for indices in gateway_indices:
+        gateway_text = process_description[indices["start"] : indices["end"]]
         gateway = {
             "id": f"PG{parallel_gateway_id}",
             "start": indices["start"],
             "end": indices["end"],
+            "paths": get_parallel_paths(gateway_text, process_description),
         }
-        gateway_text = process_description[indices["start"] : indices["end"]]
-        gateway["paths"] = get_parallel_paths(gateway_text, process_description)
         parallel_gateway_id += 1
         parallel_gateways.append(gateway)
 
