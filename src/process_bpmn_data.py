@@ -514,6 +514,7 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
     exclusive_gateways = []
 
     if len(conditions) == 2 and len(gateways) == 1:
+        conditions = [x["word"] for x in conditions]
         exclusive_gateways = [{"id": "EG0", "conditions": conditions}]
     else:
         response = prompts.extract_gateway_conditions(
@@ -824,8 +825,8 @@ def handle_text_with_parallel_keywords(agent_task_pairs, process_description):
                 indices = get_parallel_paths(path_text, process_description)
                 gateway = {
                     "id": f"PG{parallel_gateway_id}",
-                    "start": path["start"],
-                    "end": path["end"],
+                    "start": indices[0]["start"],
+                    "end": indices[-1]["end"],
                     "paths": indices,
                     "parent": gateway["id"],
                 }
