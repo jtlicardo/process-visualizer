@@ -496,7 +496,10 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
     ]
     """
 
-    response = prompts.extract_exclusive_gateways(process_description)
+    first_condition_start = conditions[0]["start"]
+    exclusive_gateway_text = process_description[first_condition_start:]
+
+    response = prompts.extract_exclusive_gateways(exclusive_gateway_text)
     pattern = r"Exclusive gateway (\d+): (.+)"
     matches = re.findall(pattern, response)
     gateways = [match[1] for match in matches]
@@ -661,7 +664,7 @@ def handle_text_with_conditions(
     Adds conditions and exclusive gateway ids to agent-task pairs.
     Args:
         agent_task_pairs (list): the list of agent-task pairs
-        conditions (list): the list of conditions
+        conditions (list): the list of condition entities
         sents_data (list): the sentence data
         process_desc (str): the process description
     Returns:
