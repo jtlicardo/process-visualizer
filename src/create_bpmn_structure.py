@@ -5,6 +5,38 @@ def create_bpmn_structure(
     agent_task_pairs, parallel_gateway_data, exclusive_gateway_data
 ):
 
+    format_agent_task_pairs(agent_task_pairs)
+
+    agent_task_pairs_to_add = agent_task_pairs.copy()
+
+    gateways = parallel_gateway_data + exclusive_gateway_data
+    gateways = sorted(gateways, key=calculate_distance)
+
+    add_tasks_to_gateways(agent_task_pairs_to_add, gateways)
+
+    write_to_file("bpmn_structure/gateways.json", gateways)
+
+    nested_gateways = nest_gateways(gateways)
+
+    write_to_file("bpmn_structure/nested_gateways_edited.json", nested_gateways)
+
+    structure = agent_task_pairs_to_add + nested_gateways
+    structure = sorted(structure, key=lambda x: get_start_idx(x))
+
+    return structure
+
+
+def get_start_idx(dictionary):
+    if "start" in dictionary:
+        return dictionary["start"]
+    elif "content" in dictionary and "task" in dictionary["content"]:
+        return dictionary["content"]["task"]["start"]
+    else:
+        return None
+
+
+def format_agent_task_pairs(agent_task_pairs):
+
     for pair in agent_task_pairs:
         pair["content"] = pair.copy()
         pair["type"] = "task" if "task" in pair else "loop"
@@ -12,262 +44,77 @@ def create_bpmn_structure(
             if key != "type" and key != "content":
                 del pair[key]
 
-    agent_task_pairs_to_add = agent_task_pairs.copy()
-    parallel_gateways = []
-    exclusive_gateways = []
-    structure = []
 
-    if parallel_gateway_data is not None:
-        parallel_gateways = create_parallel_gateways(
-            parallel_gateway_data, agent_task_pairs, agent_task_pairs_to_add
-        )
-        write_to_file("bpmn_structure/parallel_gateways_1.json", parallel_gateways)
+def add_tasks_to_gateways(agent_task_pairs_to_add, gateways):
 
-    if exclusive_gateway_data is not None:
-        exclusive_gateways = create_exclusive_gateways(
-            exclusive_gateway_data, agent_task_pairs, agent_task_pairs_to_add
-        )
-        write_to_file("bpmn_structure/exclusive_gateways_1.json", exclusive_gateways)
+    for gateway in gateways:
+        gateway["type"] = "parallel" if gateway["id"].startswith("PG") else "exclusive"
+        gateway["children"] = [[] for _ in range(len(gateway["paths"]))]
+        for i, path in enumerate(gateway["paths"]):
+            for pair in agent_task_pairs_to_add:
+                if (
+                    pair["content"]["task"]["start"] >= path["start"]
+                    and pair["content"]["task"]["end"] <= path["end"]
+                ):
+                    gateway["children"][i].append(pair)
+                    agent_task_pairs_to_add.remove(pair)
 
-    for gateway in parallel_gateways:
-        if "exclusive_parent" in gateway:
-            add_nested_parallel_gateway(exclusive_gateways, parallel_gateways, gateway)
-
-    for gateway in exclusive_gateways:
-        if "parallel_parent" in gateway:
-            add_nested_exclusive_gateway(parallel_gateways, exclusive_gateways, gateway)
-
-    write_to_file("bpmn_structure/parallel_gateways_2.json", parallel_gateways)
-    write_to_file("bpmn_structure/exclusive_gateways_2.json", exclusive_gateways)
-
-    parallel_index = 0
-    exclusive_index = 0
-
-    for pair in agent_task_pairs_to_add:
-
-        while (
-            parallel_index < len(parallel_gateways)
-            and parallel_gateways[parallel_index]["start"]
-            < pair["content"]["task"]["start"]
-        ):
-            structure.append(parallel_gateways[parallel_index])
-            parallel_index += 1
-
-        while (
-            exclusive_index < len(exclusive_gateways)
-            and exclusive_gateways[exclusive_index]["start"]
-            < pair["content"]["task"]["start"]
-        ):
-            structure.append(exclusive_gateways[exclusive_index])
-            exclusive_index += 1
-
-        structure.append(pair)
-
-    # Add any remaining gateways to the structure
-    structure.extend(parallel_gateways[parallel_index:])
-    structure.extend(exclusive_gateways[exclusive_index:])
-
-    return structure
+                    if "condition" in pair["content"] and gateway["id"].startswith(
+                        "PG"
+                    ):
+                        if "condition" not in gateway:
+                            gateway["condition"] = pair["content"]["condition"]
+                        del pair["content"]["condition"]
 
 
-def nest_gateways(exclusive_gateways, parallel_gateways):
+def calculate_distance(gateway):
+    return gateway["end"] - gateway["start"]
 
-    all_gateways = exclusive_gateways + parallel_gateways
 
+def nest_gateways(all_gateways):
     def is_nested(inner, outer):
-        return inner["start"] > outer["start"] and inner["end"] < outer["end"]
+        return (
+            inner["start"] >= outer["start"]
+            and inner["end"] <= outer["end"]
+            and (inner["start"] > outer["start"] or inner["end"] < outer["end"])
+        )
 
-    def find_parent(gateway):
+    def find_parent_and_path(gateway):
         parent = None
+        parent_path = None
         for candidate in all_gateways:
-            if is_nested(gateway, candidate):
-                if parent is None or is_nested(candidate, parent):
-                    parent = candidate
-        return parent
+            for path in candidate["paths"]:
+                if is_nested(gateway, path):
+                    if parent is None or is_nested(path, parent_path):
+                        parent = candidate
+                        parent_path = path
+        return parent, parent_path
 
-    def sort_gateways(gateways):
-        gateways.sort(key=lambda x: x["start"])
-        for g in gateways:
-            if "children" in g:
-                sort_gateways(g["children"])
+    def insert_in_sorted_order(children, gateway):
+        index = 0
+        try:
+            child_start_idx = (
+                children[0]["content"]["task"]["start"]
+                if children[0]["type"] == "task"
+                else children[0]["start"]
+            )
+        except IndexError:
+            pass
+        while index < len(children) and child_start_idx < gateway["start"]:
+            index += 1
+        children.insert(index, gateway)
 
     for gateway in all_gateways:
-        gateway["children"] = []
-
-    for gateway in all_gateways:
-        parent = find_parent(gateway)
+        parent, parent_path = find_parent_and_path(gateway)
         if parent is not None:
-            parent["children"].append(gateway)
+            path_index = parent["paths"].index(parent_path)
+            insert_in_sorted_order(parent["children"][path_index], gateway)
 
     top_level_gateways = [
-        gateway for gateway in all_gateways if find_parent(gateway) is None
+        gateway for gateway in all_gateways if find_parent_and_path(gateway)[0] is None
     ]
 
-    sort_gateways(top_level_gateways)
-
     return top_level_gateways
-
-
-def create_parallel_gateways(
-    parallel_gateway_data, agent_task_pairs, agent_task_pairs_to_add
-):
-
-    parallel_gateways = []
-
-    for gateway in parallel_gateway_data:
-        children = []
-        for i in range(len(gateway["paths"])):
-            children.append([])
-        for pair in agent_task_pairs:
-            if (
-                "parallel_gateway" in pair["content"]
-                and pair["content"]["parallel_gateway"] == gateway["id"]
-                and pair in agent_task_pairs_to_add
-            ):
-                children[pair["content"]["parallel_path"]].append(pair)
-                agent_task_pairs_to_add.remove(pair)
-
-        parallel_gateway = {
-            "type": "parallel",
-            "id": gateway["id"],
-            "children": children,
-            "start": gateway["start"],
-            "end": gateway["end"],
-        }
-
-        if "exclusive_parent" in gateway:
-            parallel_gateway["exclusive_parent"] = gateway["exclusive_parent"]
-            parallel_gateway["exclusive_parent_path"] = gateway["exclusive_parent_path"]
-
-        parallel_gateways.append(parallel_gateway)
-
-    # Some lists in children may be empty due to nested parallel gateways
-    # Replace empty lists with the nested parallel gateway
-    for gateway in parallel_gateways:
-        for i in range(len(gateway["children"])):
-            if len(gateway["children"][i]) == 0:
-                for pair in agent_task_pairs:
-                    if (
-                        "parent_gateway" in pair["content"]
-                        and pair["content"]["parent_gateway"] == gateway["id"]
-                        and pair["content"]["parent_path"] == i
-                    ):
-                        pg_id = pair["content"]["parallel_gateway"]
-                        for pg in parallel_gateways:
-                            if pg["id"] == pg_id:
-                                gateway["children"][i] = [pg]
-                                parallel_gateways.remove(pg)
-                                break
-
-    return parallel_gateways
-
-
-def create_exclusive_gateways(
-    exclusive_gateway_data, agent_task_pairs, agent_task_pairs_to_add
-):
-
-    exclusive_gateways = []
-
-    for gateway in exclusive_gateway_data:
-        children = []
-        for i in range(len(gateway["paths"])):
-            children.append([])
-        for pair in agent_task_pairs:
-            if (
-                "exclusive_gateway_id" in pair["content"]
-                and pair["content"]["exclusive_gateway_id"] == gateway["id"]
-                and pair in agent_task_pairs_to_add
-            ):
-                children[pair["content"]["exclusive_gateway_path_id"]].append(pair)
-                agent_task_pairs_to_add.remove(pair)
-
-        exclusive_gateway = {
-            "type": "exclusive",
-            "id": gateway["id"],
-            "children": children,
-            "start": gateway["start"],
-            "end": gateway["end"],
-        }
-
-        if "parallel_parent" in gateway:
-            exclusive_gateway["parallel_parent"] = gateway["parallel_parent"]
-            exclusive_gateway["parallel_parent_path"] = gateway["parallel_parent_path"]
-
-        # Only the first agent pair in the children list can contain the "condition" key
-        for i in range(len(exclusive_gateway["children"])):
-            for j in range(len(exclusive_gateway["children"][i])):
-                if (
-                    j > 0
-                    and "condition" in exclusive_gateway["children"][i][j]["content"]
-                ):
-                    del exclusive_gateway["children"][i][j]["content"]["condition"]
-
-        if "parent_gateway_id" not in gateway:
-            exclusive_gateways.append(exclusive_gateway)
-        else:
-            # Append the nested gateway to the specified path
-            # If there are any tasks already in the path, append the nested gateway after the first task that comes before the nested gateway
-            parent_gateway = next(
-                (
-                    pg
-                    for pg in exclusive_gateways
-                    if pg["id"] == gateway["parent_gateway_id"]
-                ),
-                None,
-            )
-            if parent_gateway is not None:
-                for i in range(len(parent_gateway["children"])):
-                    if (
-                        len(parent_gateway["children"][i]) > 0
-                        and i == gateway["parent_gateway_path_id"]
-                    ):
-                        for j in range(len(parent_gateway["children"][i])):
-                            if (
-                                parent_gateway["children"][i][j]["type"] == "task"
-                                and parent_gateway["children"][i][j]["content"]["task"][
-                                    "start"
-                                ]
-                                < gateway["start"]
-                            ):
-                                parent_gateway["children"][i].insert(
-                                    j + 1, exclusive_gateway
-                                )
-                                break
-
-    return exclusive_gateways
-
-
-def add_nested_exclusive_gateway(parallel_gateways, exclusive_gateways, gateway):
-
-    parent_gateway = next(
-        (pg for pg in parallel_gateways if pg["id"] == gateway["parallel_parent"]),
-        None,
-    )
-
-    assert parent_gateway is not None, "Parent exclusive gateway not found"
-
-    parent_gateway["children"][gateway["parallel_parent_path"]].append(gateway)
-    exclusive_gateways.remove(gateway)
-
-
-def add_nested_parallel_gateway(exclusive_gateways, parallel_gateways, gateway):
-
-    parent_gateway = next(
-        (pg for pg in exclusive_gateways if pg["id"] == gateway["exclusive_parent"]),
-        None,
-    )
-    assert parent_gateway is not None, "Parent parallel gateway not found"
-
-    for i in range(len(gateway["children"])):
-        if (
-            len(gateway["children"][i]) > 0
-            and "condition" in gateway["children"][i][0]["content"]
-        ):
-            gateway["condition"] = gateway["children"][i][0]["content"]["condition"]
-            del gateway["children"][i][0]["content"]["condition"]
-
-    parent_gateway["children"][gateway["exclusive_parent_path"]].append(gateway)
-    parallel_gateways.remove(gateway)
 
 
 if __name__ == "__main__":
@@ -275,8 +122,8 @@ if __name__ == "__main__":
     import json
     from os.path import exists
 
-    parallel_gateway_data = None
-    exclusive_gateway_data = None
+    parallel_gateway_data = []
+    exclusive_gateway_data = []
 
     with open("output_logs/agent_task_pairs.json", "r") as file:
         agent_task_pairs = file.read()

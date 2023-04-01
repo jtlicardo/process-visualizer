@@ -864,43 +864,6 @@ def handle_text_with_parallel_keywords(agent_task_pairs, process_description):
     return agent_task_pairs, parallel_gateways
 
 
-def check_for_nested_gateways(parallel_gateway_data, exclusive_gateway_data):
-
-    for exclusive_gateway in exclusive_gateway_data:
-        for parallel_gateway in parallel_gateway_data:
-            if (
-                exclusive_gateway["start"] >= parallel_gateway["start"]
-                and exclusive_gateway["end"] <= parallel_gateway["end"]
-            ):
-                exclusive_gateway["parallel_parent"] = parallel_gateway["id"]
-                for path in parallel_gateway["paths"]:
-                    if (
-                        exclusive_gateway["start"] >= path["start"] - 1
-                        and exclusive_gateway["end"] <= path["end"] + 1
-                    ):
-                        exclusive_gateway["parallel_parent_path"] = parallel_gateway[
-                            "paths"
-                        ].index(path)
-
-    for parallel_gateway in parallel_gateway_data:
-        for exclusive_gateway in exclusive_gateway_data:
-            if (
-                parallel_gateway["start"] >= exclusive_gateway["start"]
-                and parallel_gateway["end"] <= exclusive_gateway["end"]
-            ):
-                parallel_gateway["exclusive_parent"] = exclusive_gateway["id"]
-                for path in exclusive_gateway["paths"]:
-                    if (
-                        parallel_gateway["start"] >= path["start"] - 1
-                        and parallel_gateway["end"] <= path["end"] + 1
-                    ):
-                        parallel_gateway["exclusive_parent_path"] = exclusive_gateway[
-                            "paths"
-                        ].index(path)
-
-    return parallel_gateway_data, exclusive_gateway_data
-
-
 def process_text(text):
 
     clear_folder("./output_logs")
@@ -922,8 +885,8 @@ def process_text(text):
     data = fix_bpmn_data(data)
 
     agents, tasks, conditions, process_info = extract_all_entities(data)
-    parallel_gateway_data = None
-    exclusive_gateway_data = None
+    parallel_gateway_data = []
+    exclusive_gateway_data = []
 
     sents_data = create_sentence_data(text)
 
@@ -939,13 +902,6 @@ def process_text(text):
         agent_task_pairs, exclusive_gateway_data = handle_text_with_conditions(
             agent_task_pairs, conditions, sents_data, text
         )
-        write_to_file("exclusive_gateway_data.json", exclusive_gateway_data)
-
-    if parallel_gateway_data and exclusive_gateway_data:
-        parallel_gateway_data, exclusive_gateway_data = check_for_nested_gateways(
-            parallel_gateway_data, exclusive_gateway_data
-        )
-        write_to_file("parallel_gateway_data.json", parallel_gateway_data)
         write_to_file("exclusive_gateway_data.json", exclusive_gateway_data)
 
     if len(process_info) > 0:
