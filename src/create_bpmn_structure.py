@@ -18,7 +18,7 @@ def create_bpmn_structure(
 
     nested_gateways = nest_gateways(gateways)
 
-    write_to_file("bpmn_structure/nested_gateways_edited.json", nested_gateways)
+    write_to_file("bpmn_structure/nested_gateways.json", nested_gateways)
 
     structure = agent_task_pairs_to_add + nested_gateways
     structure = sorted(structure, key=lambda x: get_start_idx(x))
