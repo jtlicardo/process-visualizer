@@ -77,9 +77,16 @@ def calculate_distance(gateway):
 
 def nest_gateways(all_gateways):
     def is_nested(inner, outer):
-        range_1 = (inner["start"], inner["end"])
-        range_2 = (outer["start"], outer["end"])
-        return ranges_overlap_percentage(range_1, range_2)
+        if (
+            inner["start"] >= outer["start"]
+            and inner["end"] <= outer["end"]
+            and (inner["start"] > outer["start"] or inner["end"] < outer["end"])
+        ):
+            return True
+        else:
+            range_1 = (inner["start"], inner["end"])
+            range_2 = (outer["start"], outer["end"])
+            return ranges_overlap_percentage(range_1, range_2)
 
     def find_parent_and_path(gateway):
         parent = None
