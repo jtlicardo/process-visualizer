@@ -1,5 +1,5 @@
+import configparser
 import os
-from colorama import Fore
 
 import openai
 from dotenv import load_dotenv
@@ -10,14 +10,22 @@ openai.api_key = os.getenv("OPENAI_KEY")
 SYSTEM_MSG = "You are a highly experienced business process modelling expert, specializing in BPMN modelling. You will be provided with a description of a complex business process and will need to answer questions regarding the process. Your answers should be clear, accurate and concise."
 
 
+def get_model():
+    config = configparser.ConfigParser()
+    config.read("src\config.ini")
+    return config["OPENAI"]["model"]
+
+
 def extract_exclusive_gateways(process_description: str) -> str:
 
     extract_exclusive_gateways_template = "You will receive a description of a process which contains conditions. Extract the text which belongs to a specific exclusive gateway.\n\n###\n\nProcess: 'If the client opts for funding, they will have to complete a loan request. Then, the client submits the application to the financial institution. If the client decides to pay with currency, they will need to bring the full amount of the vehicle's cost to the dealership to finalize the purchase. Once the client has chosen to fund or pay with currency, they must sign the agreement before concluding the transaction.'\nExclusive gateway 1: If the client opts for funding, they will have to complete a loan request. Then, the client submits the application to the financial institution. If the client decides to pay with currency, they will need to bring the full amount of the vehicle's cost to the dealership to finalize the purchase.\n\nProcess: 'If the customer chooses to finance, the customer will need to fill out a loan application. If the customer chooses to pay in cash, the customer will need to bring the total cost of the car to the dealership in order to complete the transaction. After the financial decision has been made, if the customer decides to trade in their old car, the dealership will provide an appraisal and deduct the value from the total cost of the new car. However, if the customer chooses not to trade in their old car, they will need to pay the full price of the new car.'\nExclusive gateway 1: If the customer chooses to finance, the customer will need to fill out a loan application. If the customer chooses to pay in cash, the customer will need to bring the total cost of the car to the dealership in order to complete the transaction.\nExclusive gateway 2: if the customer decides to trade in their old car, the dealership will provide an appraisal and deduct the value from the total cost of the new car. However, if the customer chooses not to trade in their old car, they will need to pay the full price of the new car.\n\nProcess: 'If the student scores below 60%, he takes the exam again. If the student scores 60% or higher on the exam, the professor enters the grade.'\nExclusive gateway 1: If the student scores below 60%, he takes the exam again. If the student scores 60% or higher on the exam, the professor enters the grade.\n\nProcess: 'If the company chooses to create a new product, the company designs the product. If the company is satisfied with the design, the company launches the product and the process ends. If not, the company redesigns the product. On the other hand, if the company chooses to modify an existing product, the company chooses a product to redesign and then redesigns the product.'\nExclusive gateway 1: If the company chooses to create a new product, the company designs the product. If the company is satisfied with the design, the company launches the product and the process ends. If not, the company redesigns the product. On the other hand, if the company chooses to modify an existing product, the company chooses a product to redesign and then redesigns the product.\nExclusive gateway 2: If the company is satisfied with the design, the company launches the product and the process ends. If not, the company redesigns the product.\n\nProcess: '{}'"
 
     user_msg = extract_exclusive_gateways_template.format(process_description)
 
+    model = get_model()
+
     completion = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+        model=model,
         messages=[
             {"role": "system", "content": SYSTEM_MSG},
             {"role": "user", "content": user_msg},
@@ -26,7 +34,7 @@ def extract_exclusive_gateways(process_description: str) -> str:
         max_tokens=256,
     )
 
-    print(f'{completion["usage"]["total_tokens"]} tokens used')
+    print(f'{completion["usage"]["total_tokens"]} tokens used ({model})')
 
     print(completion.choices[0].message["content"], "\n")
     return completion.choices[0].message["content"]
@@ -49,7 +57,7 @@ def extract_gateway_conditions(process_description: str, conditions: str) -> str
         temperature=0,
     )
 
-    print(f'{completion["usage"]["total_tokens"]} tokens used')
+    print(f'{completion["usage"]["total_tokens"]} tokens used (text-davinci-003)')
 
     print(completion.choices[0]["text"], "\n")
     return completion.choices[0]["text"]
@@ -61,8 +69,10 @@ def extract_parallel_gateways(process_description: str) -> str:
 
     user_msg = extract_parallel_gateways_template.format(process_description)
 
+    model = get_model()
+
     completion = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+        model=model,
         messages=[
             {"role": "system", "content": SYSTEM_MSG},
             {"role": "user", "content": user_msg},
@@ -71,7 +81,7 @@ def extract_parallel_gateways(process_description: str) -> str:
         max_tokens=256,
     )
 
-    print(f'{completion["usage"]["total_tokens"]} tokens used')
+    print(f'{completion["usage"]["total_tokens"]} tokens used ({model})')
 
     print(completion.choices[0].message["content"], "\n")
     return completion.choices[0].message["content"]
@@ -83,8 +93,10 @@ def number_of_parallel_paths(parallel_gateway: str) -> str:
 
     user_msg = number_of_parallel_paths_template.format(parallel_gateway)
 
+    model = get_model()
+
     completion = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+        model=model,
         messages=[
             {"role": "system", "content": SYSTEM_MSG},
             {"role": "user", "content": user_msg},
@@ -93,7 +105,7 @@ def number_of_parallel_paths(parallel_gateway: str) -> str:
         max_tokens=2,
     )
 
-    print(f'{completion["usage"]["total_tokens"]} tokens used')
+    print(f'{completion["usage"]["total_tokens"]} tokens used ({model})')
 
     print("Number of parallel paths:", completion.choices[0].message["content"], "\n")
     return completion.choices[0].message["content"]
@@ -105,8 +117,10 @@ def extract_3_parallel_paths(parallel_gateway: str) -> str:
 
     user_msg = extract_3_parallel_paths_template.format(parallel_gateway)
 
+    model = get_model()
+
     completion = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+        model=model,
         messages=[
             {"role": "system", "content": SYSTEM_MSG},
             {"role": "user", "content": user_msg},
@@ -115,7 +129,7 @@ def extract_3_parallel_paths(parallel_gateway: str) -> str:
         max_tokens=256,
     )
 
-    print(f'{completion["usage"]["total_tokens"]} tokens used')
+    print(f'{completion["usage"]["total_tokens"]} tokens used ({model})')
 
     print("Parallel paths:", completion.choices[0].message["content"], "\n")
     return completion.choices[0].message["content"]
@@ -127,8 +141,10 @@ def extract_2_parallel_paths(parallel_gateway: str) -> str:
 
     user_msg = extract_2_parallel_paths_template.format(parallel_gateway)
 
+    model = get_model()
+
     completion = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+        model=model,
         messages=[
             {"role": "system", "content": SYSTEM_MSG},
             {"role": "user", "content": user_msg},
@@ -138,22 +154,9 @@ def extract_2_parallel_paths(parallel_gateway: str) -> str:
     )
 
     paths = completion.choices[0].message["content"]
-    print(f'{completion["usage"]["total_tokens"]} tokens used')
+    print(f'{completion["usage"]["total_tokens"]} tokens used ({model})')
 
-    if "&&" not in paths:
-        print(f"{Fore.RED}No parallel paths found, retrying with GPT-4\n{Fore.RESET}")
-        completion = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": SYSTEM_MSG},
-                {"role": "user", "content": user_msg},
-            ],
-            temperature=0,
-            max_tokens=256,
-        )
-        paths = completion.choices[0].message["content"]
-        print(f'{completion["usage"]["total_tokens"]} tokens used')
-        assert "&&" in paths, "Missing '&&' in parallel paths"
+    assert "&&" in paths, "Missing '&&' in parallel paths"
 
     print("Parallel paths:", paths, "\n")
     return paths
