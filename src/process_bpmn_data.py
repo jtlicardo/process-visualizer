@@ -1,15 +1,17 @@
 import json
+import re
 
 import requests
 import spacy
 from sentence_transformers import SentenceTransformer, util
 from spacy.matcher import Matcher
+from thefuzz import fuzz
 
 import openai_prompts as prompts
 from coreference_resolution.coref import resolve_references
+from create_bpmn_structure import create_bpmn_structure
 from graph_generator import GraphGenerator
 from logging_utils import clear_folder, write_to_file
-
 
 BPMN_INFORMATION_EXTRACTION_ENDPOINT = "https://api-inference.huggingface.co/models/jtlicardo/bpmn-information-extraction-v2"
 ZERO_SHOT_CLASSIFICATION_ENDPOINT = (
@@ -17,25 +19,41 @@ ZERO_SHOT_CLASSIFICATION_ENDPOINT = (
 )
 
 
-def get_sentences(text):
+def get_sentences(text: str) -> list:
+    """
+    Creates a list of sentences from a given text.
+    Args:
+        text (str): the text to split into sentences
+    Returns:
+        list: a list of sentences
+    """
+
     nlp = spacy.load("en_core_web_sm")
     doc = nlp(text)
     sentences = [str(i) for i in list(doc.sents)]
     return sentences
 
 
-def create_sentence_data(sentences):
+def create_sentence_data(text: str) -> list:
+    """
+    Creates a list of dictionaries containing the sentence data (sentence, start index, end index)
+    Args:
+        text (str): the input text
+    Returns:
+        list: a list of dictionaries containing the sentence data
+    """
 
-    counter = 0
+    sentences = get_sentences(text)
+
+    start = 0
     sentence_data = []
 
     for sent in sentences:
-        start = counter
-        end = counter + len(sent)
-        counter += len(sent) + 1
-        sentence = {"sentence": sent, "start": start, "end": end}
-        sentence_data.append(sentence)
+        end = start + len(sent)
+        sentence_data.append({"sentence": sent, "start": start, "end": end})
+        start += len(sent) + 1
 
+    write_to_file("sentence_data.json", sentence_data)
     return sentence_data
 
 
@@ -59,11 +77,51 @@ def extract_bpmn_data(text: str) -> list:
         {"inputs": text, "options": {"wait_for_model": True}},
         BPMN_INFORMATION_EXTRACTION_ENDPOINT,
     )
-    write_to_file("model_output.txt", data)
+    write_to_file("model_output.json", data)
 
     if "error" in data:
         print("Error when extracting BPMN data:", data["error"])
         return None
+
+    return data
+
+
+def fix_bpmn_data(data: list) -> list:
+    """
+    If the model that extracts BPMN data splits a word into multiple tokens for some reason,
+    this function fixes the output by combining the tokens into a single word.
+    Args:
+        data (list): the model output
+    Returns:
+        list: the model output with the tokens combined into a single word
+    """
+
+    data_copy = data.copy()
+
+    for i in range(len(data_copy) - 1):
+        if (
+            data_copy[i]["entity_group"] == "TASK"
+            and data_copy[i + 1]["entity_group"] == "TASK"
+            and data_copy[i]["end"] == data_copy[i + 1]["start"]
+        ):
+            print("Fixing BPMN data...")
+            print(
+                "Combining",
+                data_copy[i]["word"],
+                "and",
+                data_copy[i + 1]["word"],
+                "into one entity\n",
+            )
+            if data_copy[i + 1]["word"].startswith("##"):
+                data[i]["word"] = data[i]["word"] + data[i + 1]["word"][2:]
+            else:
+                data[i]["word"] = data[i]["word"] + data[i + 1]["word"]
+            data[i]["end"] = data[i + 1]["end"]
+            data[i]["score"] = max(data[i]["score"], data[i + 1]["score"])
+            data.pop(i + 1)
+
+    if data != data_copy:
+        write_to_file("model_output_fixed.json", data)
 
     return data
 
@@ -80,7 +138,7 @@ def classify_process_info(text: str) -> dict:
     data = query(
         {
             "inputs": text,
-            "parameters": {"candidate_labels": ["process start", "process end"]},
+            "parameters": {"candidate_labels": ["start", "end", "split", "return"]},
             "options": {"wait_for_model": True},
         },
         ZERO_SHOT_CLASSIFICATION_ENDPOINT,
@@ -109,9 +167,13 @@ def batch_classify_process_info(process_info_entities: list):
     for entity in process_info_entities:
         text = entity["word"]
         data = classify_process_info(text)
-        entity["entity_group"] = (
-            "PROCESS_START" if data["labels"][0] == "process start" else "PROCESS_END"
-        )
+        process_info_dict = {
+            "start": "PROCESS_START",
+            "end": "PROCESS_END",
+            "split": "PROCESS_SPLIT",
+            "return": "PROCESS_RETURN",
+        }
+        entity["entity_group"] = process_info_dict[data["labels"][0]]
         updated_entities.append(entity)
 
     return updated_entities
@@ -134,6 +196,15 @@ def extract_entities(type: str, data: list) -> list:
 
 
 def create_agent_task_pairs(agents, tasks, sentences):
+    """
+    Combines agents and tasks into agent-task pairs based on the sentence they appear in.
+    Args:
+        agents (list): a list of agents
+        tasks (list): a list of tasks
+        sentences (list): a list of sentence data
+    Returns:
+        list: a list of agent-task pairs (each pair is a dictionary containing the agent, task and sentence index)
+    """
 
     agents_in_sentences = []
     tasks_in_sentences = []
@@ -149,9 +220,47 @@ def create_agent_task_pairs(agents, tasks, sentences):
             if sent["start"] <= task["start"] <= sent["end"]:
                 tasks_in_sentences.append({"index": i, "task": task})
 
+    multi_agent_sentences_idx = []
+    multi_agent_sentences = []
+
+    # Check if multiple agents appear in the same sentence
+    for i, agent in enumerate(agents_in_sentences):
+        if i != len(agents_in_sentences) - 1:
+            if agent["index"] == agents_in_sentences[i + 1]["index"]:
+                print(
+                    "Multiple agents in sentence:",
+                    sentences[agent["index"]]["sentence"],
+                    "\n",
+                )
+                multi_agent_sentences_idx.append(agent["index"])
+
+    # For sentences that contain multiple agents, connect agents and tasks based on their order in the sentence
+    # For example, if the sentence is "A does B and C does D", then the agent-task pairs are (A, B) and (C, D)
+
+    for idx in multi_agent_sentences_idx:
+        sentence_data = {
+            "sentence_idx": idx,
+            "agents": [agent for agent in agents_in_sentences if agent["index"] == idx],
+            "tasks": [task for task in tasks_in_sentences if task["index"] == idx],
+        }
+        multi_agent_sentences.append(sentence_data)
+
+    for sentence in multi_agent_sentences:
+        for i, agent in enumerate(sentence["agents"]):
+            agent_task_pairs.append(
+                {
+                    "agent": agent["agent"],
+                    "task": sentence["tasks"][i]["task"],
+                    "sentence_idx": sentence["sentence_idx"],
+                }
+            )
+
     for agent in agents_in_sentences:
         for task in tasks_in_sentences:
-            if agent["index"] == task["index"]:
+            if (
+                agent["index"] == task["index"]
+                and agent["index"] not in multi_agent_sentences_idx
+            ):
                 agent_task_pairs.append(
                     {
                         "agent": agent["agent"],
@@ -159,6 +268,8 @@ def create_agent_task_pairs(agents, tasks, sentences):
                         "sentence_idx": task["index"],
                     }
                 )
+
+    agent_task_pairs = sorted(agent_task_pairs, key=lambda k: k["sentence_idx"])
 
     return agent_task_pairs
 
@@ -197,76 +308,9 @@ def add_process_end_events(
     return agent_task_pairs
 
 
-def add_conditions(conditions: list, agent_task_pairs: list, sentences: list) -> list:
-    """
-    Adds conditions and condition ids to agent-task pairs
-    Args:
-        conditions (list): a list of conditions
-        agent_task_pairs (list): a list of agent-task pairs
-        sentences (list): a list of sentences
-    Returns:
-        list: a list of agent-task pairs with conditions and condition ids
-    """
-
-    updated_agent_task_pairs = []
-    condition_id = 0
-
-    for pair in agent_task_pairs:
-
-        task = pair["task"]
-
-        for sent in sentences:
-
-            if sent["start"] <= task["start"] <= sent["end"]:
-
-                for condition in conditions:
-                    if sent["start"] <= condition["start"] <= sent["end"]:
-                        pair["condition"] = condition
-                        pair["condition"]["condition_id"] = f"C{condition_id}"
-                        condition_id += 1
-                        break
-
-        updated_agent_task_pairs.append(pair)
-
-    return updated_agent_task_pairs
-
-
-def detect_end_of_block(sentences):
-
+def has_parallel_keywords(text: str) -> bool:
     nlp = spacy.load("en_core_web_md")
-
     matcher = Matcher(nlp.vocab)
-
-    pattern_1 = [
-        {"LOWER": "after", "IS_SENT_START": True},
-        {"LOWER": "that", "OP": "!"},
-    ]
-    pattern_2 = [{"LOWER": "once", "IS_SENT_START": True}]
-    pattern_3 = [{"LOWER": "when", "IS_SENT_START": True}]
-    pattern_4 = [{"LOWER": "upon", "IS_SENT_START": True}]
-    pattern_5 = [{"LOWER": "concluding", "IS_SENT_START": True}]
-    matcher.add("END_OF_BLOCK", [pattern_1, pattern_2, pattern_3, pattern_4, pattern_5])
-
-    end_of_blocks = []
-
-    for sent in sentences:
-
-        doc = nlp(sent["sentence"])
-
-        matches = matcher(doc)
-
-        if len(matches) > 0:
-            end_of_blocks.append(sent["start"])
-
-    return end_of_blocks
-
-
-def find_sentences_with_parallel_keywords(sentences):
-
-    nlp = spacy.load("en_core_web_md")
-
-    matcher = Matcher(nlp.vocab)
-
     pattern_1 = [{"LOWER": "in"}, {"LOWER": "the"}, {"LOWER": "meantime"}]
     pattern_2 = [
         {"LOWER": "at"},
@@ -278,23 +322,21 @@ def find_sentences_with_parallel_keywords(sentences):
     pattern_4 = [{"LOWER": "while"}]
     pattern_5 = [{"LOWER": "in"}, {"LOWER": "parallel"}]
     pattern_6 = [{"LOWER": "concurrently"}]
+    pattern_7 = [{"LOWER": "simultaneously"}]
 
     matcher.add(
-        "PARALLEL", [pattern_1, pattern_2, pattern_3, pattern_4, pattern_5, pattern_6]
+        "PARALLEL",
+        [pattern_1, pattern_2, pattern_3, pattern_4, pattern_5, pattern_6, pattern_7],
     )
 
-    detected_sentences = []
+    doc = nlp(text)
 
-    for sent in sentences:
+    matches = matcher(doc)
 
-        doc = nlp(sent["sentence"])
+    if len(matches) > 0:
+        return True
 
-        matches = matcher(doc)
-
-        if len(matches) > 0:
-            detected_sentences.append(sent)
-
-    return detected_sentences
+    return False
 
 
 def find_sentences_with_loop_keywords(sentences):
@@ -319,28 +361,6 @@ def find_sentences_with_loop_keywords(sentences):
             detected_sentences.append(sent)
 
     return detected_sentences
-
-
-def add_parallel(agent_task_pairs, sentences, parallel_sentences):
-
-    updated_agent_task_pairs = []
-
-    for pair in agent_task_pairs:
-
-        task = pair["task"]
-
-        for sent in sentences:
-
-            if sent["start"] <= task["start"] <= sent["end"]:
-
-                if sent in parallel_sentences:
-                    pair["in_sentence_with_parallel_keyword"] = True
-                else:
-                    pair["in_sentence_with_parallel_keyword"] = False
-
-        updated_agent_task_pairs.append(pair)
-
-    return updated_agent_task_pairs
 
 
 def compare_tasks(task1: str, task2: str) -> float:
@@ -376,22 +396,6 @@ def find_task_with_highest_similarity(task: dict, list: list) -> str:
             highest_cosine_similarity = cosine_similarity
             highest_cosine_similarity_task = t
     return highest_cosine_similarity_task
-
-
-def num_of_tasks_in_sentence(agent_task_pairs: list, sentence_idx: int) -> int:
-    """
-    Counts the number of tasks in a sentence
-    Args:
-        agent_task_pairs (list): the list of agent-task pairs
-        sentence_idx (int): the index of the sentence
-    Returns:
-        int: the number of tasks in the sentence
-    """
-    num_of_tasks = 0
-    for pair in agent_task_pairs:
-        if pair["sentence_idx"] == sentence_idx:
-            num_of_tasks += 1
-    return num_of_tasks
 
 
 def add_task_ids(agent_task_pairs, sentences, loop_sentences):
@@ -447,104 +451,221 @@ def add_loops(agent_task_pairs, sentences, loop_sentences):
     return updated_agent_task_pairs
 
 
-def get_conditions(agent_task_pairs: list) -> list:
-    """
-    Gets the conditions from the agent-task pairs.
-    Args:
-        agent_task_pairs (list): the list of agent-task pairs
-    Returns:
-        list: the list of conditions
-    """
-    return [pair["condition"] for pair in agent_task_pairs if "condition" in pair]
-
-
-def check_if_conditions_in_same_gateway(
-    process_description: str, conditions: list
+def add_exclusive_gateway_ids(
+    agent_task_pairs: list, exlusive_gateway_data: list
 ) -> list:
     """
-    Checks whether conditions belong to the same exclusive gateway.
-    Args:
-        process_description (str): the process description
-        conditions (list): the list of conditions
-    Returns:
-        list: list of dictionaries, each dictionary contains the condition ids and the result of the check
-    """
-
-    result = []
-    obj = {}
-
-    for i, condition in enumerate(conditions):
-        if i < len(conditions) - 1:
-            condition_pair = f"'{condition['word']}' and '{conditions[i+1]['word']}'"
-            obj = {
-                "condition_1": condition["condition_id"],
-                "condition_2": conditions[i + 1]["condition_id"],
-            }
-            response = prompts.same_exclusive_gateway(
-                process_description, condition_pair
-            )
-            obj["result"] = response["content"]
-            result.append(obj)
-
-    return result
-
-
-def assign_exclusive_gateway_ids(results: list) -> dict:
-    """
-    Assigns exclusive gateway ids to each condition.
-    Args:
-        results (list): the list of dictionaries, each dictionary contains the condition ids and the result of the check
-    Returns:
-        dict: dictionary with condition ids as keys and exclusive gateway ids as values
-    """
-
-    conditions = {}
-    id = 0
-
-    for result in results:
-        if result["result"] == "TRUE":
-            if result["condition_1"] not in conditions:
-                conditions[result["condition_1"]] = f"EG{id}"
-            conditions[result["condition_2"]] = f"EG{id}"
-        else:
-            if result["condition_1"] not in conditions:
-                conditions[result["condition_1"]] = f"EG{id}"
-            conditions[result["condition_2"]] = f"EG{id + 1}"
-        id += 1
-
-    return conditions
-
-
-def add_exclusive_gateway_ids(agent_task_pairs: list, conditions: dict):
-    """
-    Adds exclusive gateway ids to agent-task pairs
+    Adds exclusive gateway ids and path ids to agent-task pairs.
     Args:
         agent_task_pairs (list): the list of agent-task pairs
-        conditions (dict): dictionary with condition ids as keys and exclusive gateway ids as values
+        exlusive_gateway_data (list): the list of exclusive gateways
     Returns:
-        list: the list of agent-task pairs with exclusive gateway ids
+        list: the list of agent-task pairs
     """
 
-    updated_agent_task_pairs = []
+    for pair in agent_task_pairs:
+        for gateway in exlusive_gateway_data:
+            for path in gateway["paths"]:
+                if pair["task"]["start"] in range(path["start"], path["end"]):
+                    pair["exclusive_gateway_id"] = gateway["id"]
+                    pair["exclusive_gateway_path_id"] = gateway["paths"].index(path)
+
+    return agent_task_pairs
+
+
+def extract_exclusive_gateways(process_description: str, conditions: list) -> list:
+    """
+    Extracts the conditions for each exclusive gateway in the process description
+    Args:
+        process_description (str): the process description
+        conditions (list): the list of condition entities found in the process description
+    Returns:
+        list: the list of exclusive gateways
+
+    Example output:
+    [
+        {
+            "id": "EG0",
+            "conditions": [
+                "if the customer is a new customer",
+                "if the customer is an existing customer"
+            ],
+            "start": 54,
+            "end": 251,
+            "paths": [{'start': 54, 'end': 210}, {'start': 211, 'end': 321}]
+        },
+    ]
+    """
+
+    first_condition_start = conditions[0]["start"]
+    exclusive_gateway_text = process_description[first_condition_start:]
+
+    response = prompts.extract_exclusive_gateways(exclusive_gateway_text)
+    pattern = r"Exclusive gateway \d+: (.+?)(?=(?:Exclusive gateway \d+:|$))"
+    matches = re.findall(pattern, response, re.DOTALL)
+    gateways = [s.strip() for s in matches]
+    gateway_indices = get_indices(gateways, process_description)
+    print("Exclusive gateway indices:", gateway_indices, "\n")
+
+    condition_string = ""
+    for condition in conditions:
+        condition_text = condition["word"]
+        if condition_string == "":
+            condition_string += f"'{condition_text}'"
+        else:
+            condition_string += f", '{condition_text}'"
+
+    exclusive_gateways = []
+
+    if len(conditions) == 2 and len(gateways) == 1:
+        conditions = [x["word"] for x in conditions]
+        exclusive_gateways = [{"id": "EG0", "conditions": conditions}]
+    else:
+        response = prompts.extract_gateway_conditions(
+            process_description, condition_string
+        )
+        pattern = r"Exclusive gateway \d+: (.+?)(?=(?:Exclusive gateway \d+:|$))"
+        matches = re.findall(pattern, response, re.DOTALL)
+        gateway_conditions = [s.strip() for s in matches]
+        exclusive_gateways = [
+            {"id": f"EG{i}", "conditions": [x.strip() for x in gateway.split("||")]}
+            for i, gateway in enumerate(gateway_conditions)
+        ]
+
+    for gateway in exclusive_gateways:
+        condition_indices = get_indices(gateway["conditions"], process_description)
+        gateway["start"] = gateway_indices[exclusive_gateways.index(gateway)]["start"]
+        gateway["end"] = gateway_indices[exclusive_gateways.index(gateway)]["end"]
+        gateway["paths"] = condition_indices
+
+    # Check for nested exclusive gateways
+    for i, gateway in enumerate(exclusive_gateways):
+        if i != len(exclusive_gateways) - 1:
+            if gateway["end"] > exclusive_gateways[i + 1]["start"]:
+                print("Nested exclusive gateway found\n")
+                # To the nested gateway, add parent gateway id
+                exclusive_gateways[i + 1]["parent_gateway_id"] = gateway["id"]
+
+    # Update the start and end indices of the paths
+    for eg_idx, exclusive_gateway in enumerate(exclusive_gateways):
+        for i, path in enumerate(exclusive_gateway["paths"]):
+            if i != len(exclusive_gateway["paths"]) - 1:
+                path["end"] = exclusive_gateway["paths"][i + 1]["start"] - 1
+            else:
+                if "parent_gateway_id" in exclusive_gateway:
+                    # Set the end index to the end of the parent gateway path
+                    parent_gateway = next(
+                        (
+                            gateway
+                            for gateway in exclusive_gateways
+                            if gateway["id"] == exclusive_gateway["parent_gateway_id"]
+                        ),
+                        None,
+                    )
+                    assert parent_gateway is not None, "No parent gateway found"
+                    for parent_path in parent_gateway["paths"]:
+                        if path["start"] in range(
+                            parent_path["start"], parent_path["end"]
+                        ):
+                            path["end"] = parent_path["end"] - 1
+                else:
+                    # If this is not the last gateway and the next gateway is not nested
+                    if (
+                        exclusive_gateway != exclusive_gateways[-1]
+                        and "parent_gateway_id" not in exclusive_gateways[eg_idx + 1]
+                    ):
+                        # Set the end index to the start index of the next gateway
+                        path["end"] = (
+                            exclusive_gateways[
+                                exclusive_gateways.index(exclusive_gateway) + 1
+                            ]["start"]
+                            - 1
+                        )
+                    # If this is not the last gateway and the next gateway is nested
+                    elif (
+                        exclusive_gateway != exclusive_gateways[-1]
+                        and "parent_gateway_id" in exclusive_gateways[eg_idx + 1]
+                    ):
+                        # Find the next gateway that is not nested
+                        # If there is no such gateway, set the end index to the end of the gateway
+                        next_gateway = next(
+                            (
+                                gateway
+                                for gateway in exclusive_gateways[
+                                    exclusive_gateways.index(exclusive_gateway) + 1 :
+                                ]
+                                if "parent_gateway_id" not in gateway
+                            ),
+                            None,
+                        )
+                        if next_gateway is not None:
+                            path["end"] = next_gateway["start"] - 1
+                        else:
+                            path["end"] = exclusive_gateway["end"]
+                    # If this is the last gateway
+                    elif exclusive_gateway == exclusive_gateways[-1]:
+                        # Set the end index to the end of the gateway
+                        path["end"] = exclusive_gateway["end"]
+
+    # Add parent gateway path id to the nested gateways
+    for eg_idx, exclusive_gateway in enumerate(exclusive_gateways):
+        if "parent_gateway_id" in exclusive_gateway:
+            parent_gateway = next(
+                (
+                    gateway
+                    for gateway in exclusive_gateways
+                    if gateway["id"] == exclusive_gateway["parent_gateway_id"]
+                ),
+                None,
+            )
+            assert parent_gateway is not None, "No parent gateway found"
+            for path in parent_gateway["paths"]:
+                if exclusive_gateway["start"] in range(path["start"], path["end"]):
+                    exclusive_gateway["parent_gateway_path_id"] = parent_gateway[
+                        "paths"
+                    ].index(path)
+
+    print("Exclusive gateways data:", exclusive_gateways, "\n")
+    return exclusive_gateways
+
+
+def add_conditions(conditions: list, agent_task_pairs: list, sentences: list) -> list:
+    """
+    Adds conditions and condition ids to agent-task pairs
+    Args:
+        conditions (list): a list of conditions
+        agent_task_pairs (list): a list of agent-task pairs
+        sentences (list): a list of sentences
+    Returns:
+        list: a list of agent-task pairs with conditions
+    """
+
+    condition_id = 0
 
     for pair in agent_task_pairs:
-        if "condition" in pair:
-            pair["condition"]["exclusive_gateway_id"] = conditions[
-                pair["condition"]["condition_id"]
-            ]
-        updated_agent_task_pairs.append(pair)
 
-    return updated_agent_task_pairs
+        for sent in sentences:
+
+            if pair["task"]["start"] in range(sent["start"], sent["end"]):
+
+                for condition in conditions:
+                    if condition["start"] in range(sent["start"], sent["end"]):
+                        pair["condition"] = condition
+                        pair["condition"]["condition_id"] = f"C{condition_id}"
+                        condition_id += 1
+                        break
+
+    return agent_task_pairs
 
 
-def handle_conditions(
+def handle_text_with_conditions(
     agent_task_pairs: list, conditions: list, sents_data: list, process_desc: str
 ) -> list:
     """
     Adds conditions and exclusive gateway ids to agent-task pairs.
     Args:
         agent_task_pairs (list): the list of agent-task pairs
-        conditions (list): the list of conditions
+        conditions (list): the list of condition entities
         sents_data (list): the sentence data
         process_desc (str): the process description
     Returns:
@@ -552,126 +673,15 @@ def handle_conditions(
     """
 
     updated_agent_task_pairs = add_conditions(conditions, agent_task_pairs, sents_data)
-    conditions_with_ids = get_conditions(agent_task_pairs)
-    result = check_if_conditions_in_same_gateway(process_desc, conditions_with_ids)
-    conditions_with_exclusive_gateway_ids = assign_exclusive_gateway_ids(result)
+
+    exclusive_gateway_data = extract_exclusive_gateways(process_desc, conditions)
+
     updated_agent_task_pairs = add_exclusive_gateway_ids(
-        updated_agent_task_pairs, conditions_with_exclusive_gateway_ids
+        updated_agent_task_pairs,
+        exclusive_gateway_data,
     )
 
-    return updated_agent_task_pairs
-
-
-def find_second_condition_index(dict_list: list) -> int:
-    """
-    Finds the second condition that has the same exclusive gateway id.
-    If there is no second condition that has the same exclusive gateway id, returns -1.
-    Args:
-        dict_list (list): the list of dictionaries
-    Returns:
-        int: the index of the second condition that has the same exclusive gateway id
-    """
-
-    found_conditions = 0
-    for i, d in enumerate(dict_list):
-        if "condition" in d:
-            if (
-                d["condition"]["exclusive_gateway_id"]
-                == dict_list[1]["condition"]["exclusive_gateway_id"]
-            ):
-                found_conditions += 1
-                if found_conditions == 2:
-                    return i
-    return -1
-
-
-def find_first_task_in_next_sentence(dict_list: list) -> tuple:
-    """
-    Finds the first task in the next sentence. If there is no next sentence, returns a tuple of None and None.
-    Args:
-        dict_list (list): the list of dictionaries
-    Returns:
-        tuple: the first task in the next sentence and its index
-    """
-    if dict_list[0]["sentence_idx"] == dict_list[-1]["sentence_idx"]:
-        return (None, None)
-    cur_sentence_idx = dict_list[0]["sentence_idx"]
-    next_sentence_idx = cur_sentence_idx + 1
-    for i, x in enumerate(dict_list):
-        if x["sentence_idx"] == next_sentence_idx:
-            return (x, i)
-
-
-def create_bpmn_structure(input):
-
-    if len(input) == 1:
-        type = "task" if ("task" in input[0]) else "loop"
-        return {"type": type, "content": input[0]}
-    elif isinstance(input, dict):
-        type = "task" if ("task" in input) else "loop"
-        return {"type": type, "content": input}
-
-    first_task, idx = find_first_task_in_next_sentence(input)
-
-    if first_task and idx:
-        if first_task["in_sentence_with_parallel_keyword"] == True:
-            if "condition" in input[0]:
-                value = input[0].pop("condition")
-                return [
-                    {
-                        "type": "parallel",
-                        "condition": value,
-                        "children": [
-                            create_bpmn_structure(input[0:idx]),
-                            create_bpmn_structure(input[idx:]),
-                        ],
-                    }
-                ]
-            else:
-                return [
-                    {
-                        "type": "parallel",
-                        "children": [
-                            create_bpmn_structure(input[0:idx]),
-                            create_bpmn_structure(input[idx:]),
-                        ],
-                    }
-                ]
-        else:
-            if "condition" in input[1]:
-                second_condition_idx = find_second_condition_index(input)
-
-                if second_condition_idx == -1:
-                    return [
-                        {"type": "task", "content": input[0]},
-                        {
-                            "type": "exclusive",
-                            "children": create_bpmn_structure(input[1:]),
-                        },
-                    ]
-                else:
-                    return [
-                        {"type": "task", "content": input[0]},
-                        {
-                            "type": "exclusive",
-                            "children": [
-                                create_bpmn_structure(input[1:second_condition_idx]),
-                                create_bpmn_structure(input[second_condition_idx:]),
-                            ],
-                        },
-                    ]
-            else:
-                remainder = create_bpmn_structure(input[1:])
-                if isinstance(remainder, list):
-                    return [create_bpmn_structure(input[0])] + [*remainder]
-                else:
-                    return [create_bpmn_structure(input[0])] + [remainder]
-    else:
-        remainder = create_bpmn_structure(input[1:])
-        if isinstance(remainder, list):
-            return [create_bpmn_structure(input[0])] + [*remainder]
-        else:
-            return [create_bpmn_structure(input[0])] + [remainder]
+    return updated_agent_task_pairs, exclusive_gateway_data
 
 
 def should_resolve_coreferences(text):
@@ -700,45 +710,200 @@ def extract_all_entities(data: list) -> tuple:
     return (agents, tasks, conditions, process_info)
 
 
-def get_sentence_data(text):
+def get_indices(strings: list, text: str) -> list:
+    """
+    Gets the start and end indices of the given strings in the text by using fuzzy string matching.
+    Args:
+        strings (list): the list of strings to be found in the text
+        text (str): the text in which the strings are to be found
+    Returns:
+        list: the list of start and end indices
+    """
 
-    sents = get_sentences(text)
-    sents_data = create_sentence_data(sents)
-    write_to_file("sentences.txt", sents_data)
-    return sents_data
+    indices = []
+    matches = []
+
+    for str in strings:
+        potential_matches = []
+        length = len(str)
+        first_word = str.split()[0].lower()
+        first_word_indices = [
+            i for i in range(len(text)) if text.lower().startswith(first_word, i)
+        ]
+        for idx in first_word_indices:
+            potential_match = text[idx : idx + length + 1]
+            prob = fuzz.ratio(str, potential_match)
+            potential_matches.append(
+                {"potential_match": potential_match, "probability": prob}
+            )
+        matches.append(max(potential_matches, key=lambda x: x["probability"]))
+
+    for match in matches:
+        txt = match["potential_match"]
+        indices.append(
+            {
+                "start": text.find(txt),
+                "end": text.find(txt) + len(txt),
+            }
+        )
+
+    return indices
+
+
+def get_parallel_paths(parallel_gateway, process_description):
+    num = int(prompts.number_of_parallel_paths(parallel_gateway))
+    assert num <= 3, "The maximum number of parallel paths is 3"
+    paths = ""
+    if num == 1:
+        return None
+    elif num == 2:
+        paths = prompts.extract_2_parallel_paths(parallel_gateway)
+    elif num == 3:
+        paths = prompts.extract_3_parallel_paths(parallel_gateway)
+    paths = paths.split("&&")
+    paths = [s.strip() for s in paths]
+    indices = get_indices(paths, process_description)
+    print("Parallel path indices:", indices, "\n")
+    return indices
+
+
+def get_parallel_gateways(text):
+    response = prompts.extract_parallel_gateways(text)
+    pattern = r"Parallel gateway \d+: (.+?)(?=(?:Parallel gateway \d+:|$))"
+    matches = re.findall(pattern, response, re.DOTALL)
+    gateways = [s.strip() for s in matches]
+    indices = get_indices(gateways, text)
+    print("Parallel gateway indices:", indices, "\n")
+    return indices
+
+
+def handle_text_with_parallel_keywords(agent_task_pairs, process_description):
+    """
+    Extracts parallel gateways and paths from the process description.
+    Args:
+        process_description (str): the process description
+    Returns:
+        list: the list of parallel gateways
+
+    Example output:
+    [
+        {
+            "id": "PG0",
+            "start": 0,
+            "end": 100,
+            "paths": [
+                {
+                    "start": 0,
+                    "end": 50,
+                },
+                {
+                    "start": 50,
+                    "end": 100,
+                },
+            ],
+        },
+    ]
+    """
+
+    parallel_gateways = []
+    parallel_gateway_id = 0
+
+    gateway_indices = get_parallel_gateways(process_description)
+
+    for indices in gateway_indices:
+        gateway_text = process_description[indices["start"] : indices["end"]]
+        gateway = {
+            "id": f"PG{parallel_gateway_id}",
+            "start": indices["start"],
+            "end": indices["end"],
+            "paths": get_parallel_paths(gateway_text, process_description),
+        }
+        parallel_gateway_id += 1
+        parallel_gateways.append(gateway)
+
+    for gateway in parallel_gateways.copy():
+        for path in gateway["paths"]:
+            path_text = process_description[path["start"] : path["end"]]
+            if has_parallel_keywords(path_text):
+                print("Parallel keywords detected in path:", path_text, "\n")
+                indices = get_parallel_paths(path_text, process_description)
+                gateway = {
+                    "id": f"PG{parallel_gateway_id}",
+                    "start": indices[0]["start"],
+                    "end": indices[-1]["end"],
+                    "paths": indices,
+                    "parallel_parent": gateway["id"],
+                    "parallel_parent_path": gateway["paths"].index(path),
+                }
+                parallel_gateway_id += 1
+                parallel_gateways.append(gateway)
+
+    print("Parallel gateway data:", parallel_gateways, "\n")
+
+    for pair in agent_task_pairs:
+        for gateway in parallel_gateways:
+            if (
+                pair["task"]["start"] >= gateway["start"]
+                and pair["task"]["end"] <= gateway["end"]
+            ):
+                if "parent" not in gateway:
+                    pair["parallel_gateway"] = gateway["id"]
+                else:
+                    pair["parent_gateway"] = gateway["parent"]
+                    pair["parallel_gateway"] = gateway["id"]
+            for path in gateway["paths"]:
+                if (
+                    pair["task"]["start"] >= path["start"]
+                    and pair["task"]["end"] <= path["end"]
+                ):
+                    if "parent" not in gateway:
+                        pair["parallel_path"] = gateway["paths"].index(path)
+                    else:
+                        pair["parent_path"] = pair["parallel_path"]
+                        pair["parallel_path"] = gateway["paths"].index(path)
+
+    return agent_task_pairs, parallel_gateways
 
 
 def process_text(text):
 
     clear_folder("./output_logs")
 
-    print("\nInput text:\n" + text)
+    print("\nInput text:\n" + text + "\n")
 
     if should_resolve_coreferences(text):
-        print("\nResolving coreferences...\n")
+        print("Resolving coreferences...\n")
         text = resolve_references(text)
         write_to_file("coref_output.txt", text)
     else:
-        print("\nNo coreferences to resolve\n")
-
-    sents_data = get_sentence_data(text)
-
-    parallel_sentences = find_sentences_with_parallel_keywords(sents_data)
-    loop_sentences = find_sentences_with_loop_keywords(sents_data)
+        print("No coreferences to resolve\n")
 
     data = extract_bpmn_data(text)
 
     if not data:
         return
 
+    data = fix_bpmn_data(data)
+
     agents, tasks, conditions, process_info = extract_all_entities(data)
+    parallel_gateway_data = []
+    exclusive_gateway_data = []
+
+    sents_data = create_sentence_data(text)
 
     agent_task_pairs = create_agent_task_pairs(agents, tasks, sents_data)
 
+    if has_parallel_keywords(text):
+        agent_task_pairs, parallel_gateway_data = handle_text_with_parallel_keywords(
+            agent_task_pairs, text
+        )
+        write_to_file("parallel_gateway_data.json", parallel_gateway_data)
+
     if len(conditions) > 0:
-        agent_task_pairs = handle_conditions(
+        agent_task_pairs, exclusive_gateway_data = handle_text_with_conditions(
             agent_task_pairs, conditions, sents_data, text
         )
+        write_to_file("exclusive_gateway_data.json", exclusive_gateway_data)
 
     if len(process_info) > 0:
         process_info = batch_classify_process_info(process_info)
@@ -746,50 +911,19 @@ def process_text(text):
             agent_task_pairs, sents_data, process_info
         )
 
-    agent_task_pairs = add_parallel(agent_task_pairs, sents_data, parallel_sentences)
+    loop_sentences = find_sentences_with_loop_keywords(sents_data)
     agent_task_pairs = add_task_ids(agent_task_pairs, sents_data, loop_sentences)
     agent_task_pairs = add_loops(agent_task_pairs, sents_data, loop_sentences)
 
-    write_to_file("agent_task_pairs.txt", agent_task_pairs)
+    write_to_file("agent_task_pairs.json", agent_task_pairs)
 
-    end_of_blocks = detect_end_of_block(sents_data)
+    structure = create_bpmn_structure(
+        agent_task_pairs, parallel_gateway_data, exclusive_gateway_data
+    )
 
-    if len(end_of_blocks) != 0:
+    write_to_file("bpmn_structure.json", structure)
 
-        agent_task_pairs_before_end_of_block = [
-            x
-            for x in agent_task_pairs
-            if "task" in x
-            and x["task"]["start"] < end_of_blocks[0]
-            or "start" in x
-            and x["start"] < end_of_blocks[0]
-        ]
-        agent_task_pairs_after_end_of_block = [
-            x
-            for x in agent_task_pairs
-            if "task" in x
-            and x["task"]["start"] >= end_of_blocks[0]
-            or "start" in x
-            and x["start"] >= end_of_blocks[0]
-        ]
-
-        output_1 = create_bpmn_structure(agent_task_pairs_before_end_of_block)
-        output_2 = create_bpmn_structure(agent_task_pairs_after_end_of_block)
-
-        if isinstance(output_1, dict):
-            output_1 = [output_1]
-
-        if isinstance(output_2, dict):
-            output_2 = [output_2]
-
-        output = output_1 + output_2
-
-    else:
-        output = create_bpmn_structure(agent_task_pairs)
-
-    write_to_file("final_output.txt", output)
-
-    return output
+    return structure
 
 
 def generate_graph_pdf(input, notebook):

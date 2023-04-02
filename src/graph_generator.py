@@ -1,4 +1,9 @@
+from os import remove
+from os.path import exists
+
 import graphviz
+
+from logging_utils import write_to_file
 
 
 class GraphGenerator:
@@ -12,8 +17,6 @@ class GraphGenerator:
         self.notebook = notebook
 
         self.data = data
-
-        self.create_start_end_events = True
 
         self.last_completed_type = ""
         self.last_completed_type_id = 0  # i.e. counter
@@ -84,6 +87,20 @@ class GraphGenerator:
                 self.connect(str(key), f"END_{end_event_counter}")
                 end_event_counter += 1
 
+    def clean_up_graph(self):
+        for k, v in self.tracker.copy().items():
+            if k.startswith("EG") and k.endswith("E") and len(v["before"]) == 1:
+                self.connect(v["before"][0], v["after"][0])
+                print(f"Removing {k} and all adjacent edges")
+                self.bpmn.save()
+                with open("bpmn.gv", "r") as file:
+                    data = file.readlines()
+                with open("cleaned_bpmn.gv", "w") as file:
+                    for line in data:
+                        if k not in line:
+                            file.write(line)
+        self.bpmn.save()
+
     def contains_nested_lists(self, list_parameter):
         assert isinstance(list_parameter, list)
         for item in list_parameter:
@@ -139,6 +156,9 @@ class GraphGenerator:
                 elif child[0]["type"] == "task":
                     if "condition" in child[0]["content"]:
                         count += 1
+                elif child[0]["type"] == "loop":
+                    if "condition" in child[0]["content"]:
+                        count += 1
             elif "content" in child and "condition" in child["content"]:
                 count += 1
         return count
@@ -148,8 +168,13 @@ class GraphGenerator:
         for child in gateway["children"]:
             if isinstance(child, list):
                 for element in child:
-                    if element["type"] == "loop":
-                        return True
+                    if isinstance(element, dict):
+                        if element["type"] == "loop":
+                            return True
+                    elif isinstance(element, list):
+                        for e in element:
+                            if e["type"] == "loop":
+                                return True
             else:
                 if child["type"] == "loop":
                     return True
@@ -160,9 +185,15 @@ class GraphGenerator:
         for child in gateway["children"]:
             if isinstance(child, list):
                 for element in child:
-                    if element["type"] == "task":
-                        if "process_end_event" in element["content"]:
-                            return True
+                    if isinstance(element, dict):
+                        if element["type"] == "task":
+                            if "process_end_event" in element["content"]:
+                                return True
+                    elif isinstance(element, list):
+                        for e in element:
+                            if e["type"] == "task":
+                                if "process_end_event" in e["content"]:
+                                    return True
             else:
                 if child["type"] == "task":
                     if "process_end_event" in child["content"]:
@@ -250,7 +281,7 @@ class GraphGenerator:
 
         if "condition" in element["content"]:
             self.connect(
-                f"EG{self.exclusive_gateway_counter - 1}_S",
+                f"{parent_gateway['id']}_S",
                 f"T{self.task_counter - 1}",
                 label_parameter=element["content"]["condition"]["word"],
             )
@@ -318,6 +349,7 @@ class GraphGenerator:
                 and "single_condition" not in parent_gateway
                 and "has_loops" not in parent_gateway
                 and "process_end_event" not in element["content"]
+                and "has_end_events" not in parent_gateway
             ):
                 self.connect(
                     f"{element['id']}",
@@ -348,9 +380,22 @@ class GraphGenerator:
                 )
             elif element["type"] == "loop":
                 assert parent_gateway["type"] == "exclusive"
-                assert previous_element is not None
                 assert last is True
-                self.connect(f"{previous_element['id']}", element["content"]["go_to"])
+                if previous_element is not None:
+                    if previous_element["type"] == "task":
+                        self.connect(
+                            f"{previous_element['id']}", element["content"]["go_to"]
+                        )
+                    else:
+                        self.connect(
+                            f"{previous_element['id']}_E", element["content"]["go_to"]
+                        )
+                else:
+                    self.connect(
+                        f"{parent_gateway['id']}_S",
+                        element["content"]["go_to"],
+                        label_parameter=element["content"]["condition"]["word"],
+                    )
             elif element["type"] == "exclusive":
                 self.handle_gateway(
                     element=element,
@@ -447,6 +492,7 @@ class GraphGenerator:
                 last
                 and "single_condition" not in parent_gateway
                 and "has_end_events" not in parent_gateway
+                and "has_end_events" not in element
             ):
                 self.connect(
                     f"{element['id']}_E",
@@ -459,6 +505,21 @@ class GraphGenerator:
                     f"{previous_element['id']}",
                     f"{element['id']}_S",
                 )
+            else:
+                self.connect(
+                    f"{previous_element['id']}_E",
+                    f"{element['id']}_S",
+                )
+
+        if (
+            previous_element is None
+            and parent_gateway is not None
+            and "condition" not in element
+        ):
+            self.connect(
+                f"{parent_gateway['id']}_S",
+                f"{element['id']}_S",
+            )
 
         self.last_completed_type = type
         self.last_completed_type_id = (
@@ -468,6 +529,8 @@ class GraphGenerator:
         )
 
     def generate_graph(self):
+
+        self.remove_old_files()
 
         if isinstance(self.data, dict):
             self.data = [self.data]
@@ -490,24 +553,38 @@ class GraphGenerator:
                     element=element, type="exclusive", previous_element=previous_element
                 )
 
-            if global_index == len(self.data) - 1 and self.create_start_end_events:
-                self.create_start_and_end_events()
+        self.create_start_and_end_events()
+        self.clean_up_graph()
+
+        write_to_file("graph_data.json", self.tracker)
+
+    def remove_old_files(self):
+        if exists("bpmn.gv"):
+            remove("bpmn.gv")
+        if exists("cleaned_bpmn.gv"):
+            remove("cleaned_bpmn.gv")
+        if exists("bpmn.gv.pdf"):
+            remove("bpmn.gv.pdf")
+        if exists("cleaned_bpmn.gv.pdf"):
+            remove("cleaned_bpmn.gv.pdf")
 
     def show(self):
         if self.notebook == True:
             self.bpmn.save()
         else:
-            self.bpmn.view()
+            file = "cleaned_bpmn.gv" if exists("cleaned_bpmn.gv") else "bpmn.gv"
+            src = graphviz.Source.from_file(file)
+            src.render(file, view=True)
 
     def save_file(self):
         self.bpmn.render(outfile="./src/bpmn.jpeg")
 
 
 if __name__ == "__main__":
-    # Used for debugging purposes
+    # Used for testing
     import json
 
-    with open("output_logs/final_output.txt", "r") as file:
+    with open("output_logs/bpmn_structure/bpmn_structure.json", "r") as file:
         content = file.read()
     data = json.loads(content)
     bpmn = GraphGenerator(data, notebook=False)

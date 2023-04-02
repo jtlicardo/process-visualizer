@@ -1,16 +1,20 @@
 import json
 import os
+import shutil
 
 
 def clear_folder(folder):
-    for file in os.listdir(folder):
-        os.remove(os.path.join(folder, file))
+    for root, dirs, files in os.walk(folder):
+        for file in files:
+            os.remove(os.path.join(root, file))
+        for dir in dirs:
+            shutil.rmtree(os.path.join(root, dir))
 
 
 def write_to_file(filename, input):
 
-    if not os.path.exists("./output_logs"):
-        os.makedirs("./output_logs")
+    if not os.path.exists("./output_logs/bpmn_structure"):
+        os.makedirs("./output_logs/bpmn_structure")
 
     if isinstance(input, str):
         with open("./output_logs/" + filename, "w") as file:
