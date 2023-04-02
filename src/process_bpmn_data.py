@@ -120,7 +120,8 @@ def fix_bpmn_data(data: list) -> list:
             data[i]["score"] = max(data[i]["score"], data[i + 1]["score"])
             data.pop(i + 1)
 
-    write_to_file("model_output_fixed.json", data)
+    if data != data_copy:
+        write_to_file("model_output_fixed.json", data)
 
     return data
 
