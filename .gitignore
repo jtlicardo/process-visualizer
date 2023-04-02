@@ -154,5 +154,4 @@ cython_debug/
 *.gv
 *.pdf
 *.jpeg
-*.png
 output_logs/

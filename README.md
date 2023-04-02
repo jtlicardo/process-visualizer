@@ -75,3 +75,17 @@ customer searches for the goods and picks up the goods.*
 <img src="images/image_4.png" width="600">
 </p>
 </details>
+
+---
+
+### Example #5
+
+*The process starts when the R&D team generates ideas for new products. At this point, 3 things occur in parallel: the first thing is the engineering team analyzing the ideas for feasibility. The engineering team also creates the technical specification. The second path involves the marketing team conducting market research for the ideas. At the same time, the design team creates visual concepts for the potential products. The third path sees the financial analysts reviewing the potential cost of the ideas. Once each track has completed its analysis, the management reviews the findings of the analysis.*
+
+<details>
+  <summary><b>Show output</b></summary>
+  
+<p align="center">
+<img src="images/image_5.png" width="600">
+</p>
+</details>
