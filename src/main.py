@@ -1,6 +1,6 @@
 import argparse
-
 import configparser
+
 from process_bpmn_data import generate_graph_pdf, process_text
 
 
