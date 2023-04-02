@@ -69,6 +69,18 @@ def add_tasks_to_gateways(agent_task_pairs_to_add, gateways):
                         if "condition" not in gateway:
                             gateway["condition"] = pair["content"]["condition"]
                         del pair["content"]["condition"]
+        if gateway["type"] == "exclusive":
+            # Only the first agent pair in the children list can contain the "condition" key
+            for i in range(len(gateway["children"])):
+                children_list = gateway["children"][i]
+                for j in range(len(children_list)):
+                    child = children_list[j]
+                    if (
+                        j > 0
+                        and (child["type"] == "task" or child["type"] == "loop")
+                        and "condition" in child["content"]
+                    ):
+                        del child["content"]["condition"]
 
 
 def calculate_distance(gateway):
