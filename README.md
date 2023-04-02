@@ -100,6 +100,6 @@ customer searches for the goods and picks up the goods.*
   <summary><b>Show output</b></summary>
   
 <p align="center">
-<img src="images/image_6.png" width="700">
+<img src="images/image_6.png" width="800">
 </p>
 </details>
