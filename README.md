@@ -1,6 +1,6 @@
 # Process visualizer
 
-This is an application that aims to convert textual descriptions of processes into simplified BPMN diagrams using [Graphviz](https://graphviz.org/).
+This is an application that aims to convert textual descriptions of processes into simplified BPMN diagrams.
 
 The app supports the following BPMN elements:
 
