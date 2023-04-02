@@ -86,6 +86,20 @@ customer searches for the goods and picks up the goods.*
   <summary><b>Show output</b></summary>
   
 <p align="center">
-<img src="images/image_5.png" width="600">
+<img src="images/image_5.png" width="700">
+</p>
+</details>
+
+---
+
+### Example #6
+
+*The company receives the order from the customer. If the product is out of stock, the customer receives a notification that the order cannot be fulfilled. If the product is in stock and the payment succeeds, the company processes and ships the order. If the product is in stock, but the payment fails, the customer receives a notification that the order cannot be processed.*
+
+<details>
+  <summary><b>Show output</b></summary>
+  
+<p align="center">
+<img src="images/image_6.png" width="700">
 </p>
 </details>
