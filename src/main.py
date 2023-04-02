@@ -23,7 +23,7 @@ def parse_arguments():
     parser.add_argument(
         "-m",
         "--model",
-        help="Choose the OpenAI model to use",
+        help="The OpenAI model to use",
         choices=["gpt-3.5-turbo", "gpt-4"],
         default="gpt-3.5-turbo",
     )
