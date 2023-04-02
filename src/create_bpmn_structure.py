@@ -12,7 +12,7 @@ def create_bpmn_structure(
     gateways = parallel_gateway_data + exclusive_gateway_data
     gateways = sorted(gateways, key=calculate_distance)
 
-    add_tasks_to_gateways(agent_task_pairs, agent_task_pairs_to_add, gateways)
+    add_tasks_to_gateways(agent_task_pairs_to_add, gateways)
 
     write_to_file("bpmn_structure/gateways.json", gateways)
 
@@ -47,13 +47,13 @@ def format_agent_task_pairs(agent_task_pairs):
                 del pair[key]
 
 
-def add_tasks_to_gateways(agent_task_pairs, agent_task_pairs_to_add, gateways):
+def add_tasks_to_gateways(agent_task_pairs_to_add, gateways):
 
     for gateway in gateways:
         gateway["type"] = "parallel" if gateway["id"].startswith("PG") else "exclusive"
         gateway["children"] = [[] for _ in range(len(gateway["paths"]))]
         for i, path in enumerate(gateway["paths"]):
-            for pair in agent_task_pairs:
+            for pair in agent_task_pairs_to_add.copy():
                 start_idx = (
                     pair["content"]["task"]["start"]
                     if pair["type"] == "task"
@@ -77,11 +77,9 @@ def calculate_distance(gateway):
 
 def nest_gateways(all_gateways):
     def is_nested(inner, outer):
-        return (
-            inner["start"] >= outer["start"]
-            and inner["end"] <= outer["end"]
-            and (inner["start"] > outer["start"] or inner["end"] < outer["end"])
-        )
+        range_1 = (inner["start"], inner["end"])
+        range_2 = (outer["start"], outer["end"])
+        return ranges_overlap_percentage(range_1, range_2)
 
     def find_parent_and_path(gateway):
         parent = None
@@ -119,6 +117,29 @@ def nest_gateways(all_gateways):
     ]
 
     return top_level_gateways
+
+
+def ranges_overlap_percentage(range1, range2, min_overlap_percentage=0.97):
+    start1, end1 = range1
+    start2, end2 = range2
+
+    overlap_start = max(start1, start2)
+    overlap_end = min(end1, end2)
+
+    if overlap_start < overlap_end:
+        overlap_range = overlap_end - overlap_start
+        range1_size = end1 - start1
+        range2_size = end2 - start2
+
+        overlap_percentage1 = overlap_range / range1_size
+        overlap_percentage2 = overlap_range / range2_size
+
+        return (
+            overlap_percentage1 >= min_overlap_percentage
+            and overlap_percentage2 >= min_overlap_percentage
+        )
+    else:
+        return False
 
 
 if __name__ == "__main__":
