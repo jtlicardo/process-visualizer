@@ -12,7 +12,7 @@ def create_bpmn_structure(
     gateways = parallel_gateway_data + exclusive_gateway_data
     gateways = sorted(gateways, key=calculate_distance)
 
-    add_tasks_to_gateways(agent_task_pairs_to_add, gateways)
+    add_tasks_to_gateways(agent_task_pairs, agent_task_pairs_to_add, gateways)
 
     write_to_file("bpmn_structure/gateways.json", gateways)
 
@@ -22,6 +22,8 @@ def create_bpmn_structure(
 
     structure = agent_task_pairs_to_add + nested_gateways
     structure = sorted(structure, key=lambda x: get_start_idx(x))
+
+    write_to_file("bpmn_structure/bpmn_structure.json", structure)
 
     return structure
 
@@ -45,13 +47,13 @@ def format_agent_task_pairs(agent_task_pairs):
                 del pair[key]
 
 
-def add_tasks_to_gateways(agent_task_pairs_to_add, gateways):
+def add_tasks_to_gateways(agent_task_pairs, agent_task_pairs_to_add, gateways):
 
     for gateway in gateways:
         gateway["type"] = "parallel" if gateway["id"].startswith("PG") else "exclusive"
         gateway["children"] = [[] for _ in range(len(gateway["paths"]))]
         for i, path in enumerate(gateway["paths"]):
-            for pair in agent_task_pairs_to_add:
+            for pair in agent_task_pairs:
                 start_idx = (
                     pair["content"]["task"]["start"]
                     if pair["type"] == "task"
