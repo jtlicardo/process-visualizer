@@ -52,10 +52,12 @@ def add_tasks_to_gateways(agent_task_pairs_to_add, gateways):
         gateway["children"] = [[] for _ in range(len(gateway["paths"]))]
         for i, path in enumerate(gateway["paths"]):
             for pair in agent_task_pairs_to_add:
-                if (
-                    pair["content"]["task"]["start"] >= path["start"]
-                    and pair["content"]["task"]["end"] <= path["end"]
-                ):
+                start_idx = (
+                    pair["content"]["task"]["start"]
+                    if pair["type"] == "task"
+                    else pair["content"]["start"]
+                )
+                if start_idx in range(path["start"], path["end"] + 1):
                     gateway["children"][i].append(pair)
                     agent_task_pairs_to_add.remove(pair)
 
