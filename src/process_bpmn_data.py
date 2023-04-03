@@ -151,7 +151,7 @@ def classify_process_info(text: str) -> dict:
     return data
 
 
-def batch_classify_process_info(process_info_entities: list):
+def batch_classify_process_info(process_info_entities: list) -> list:
     """
     Classifies a list of PROCESS_INFO entities into PROCESS_START or PROCESS_END.
     Args:
@@ -777,7 +777,7 @@ def get_parallel_gateways(text):
     return indices
 
 
-def handle_text_with_parallel_keywords(agent_task_pairs, process_description):
+def handle_text_with_parallel_keywords(process_description):
     """
     Extracts parallel gateways and paths from the process description.
     Args:
@@ -840,29 +840,7 @@ def handle_text_with_parallel_keywords(agent_task_pairs, process_description):
 
     print("Parallel gateway data:", parallel_gateways, "\n")
 
-    for pair in agent_task_pairs:
-        for gateway in parallel_gateways:
-            if (
-                pair["task"]["start"] >= gateway["start"]
-                and pair["task"]["end"] <= gateway["end"]
-            ):
-                if "parent" not in gateway:
-                    pair["parallel_gateway"] = gateway["id"]
-                else:
-                    pair["parent_gateway"] = gateway["parent"]
-                    pair["parallel_gateway"] = gateway["id"]
-            for path in gateway["paths"]:
-                if (
-                    pair["task"]["start"] >= path["start"]
-                    and pair["task"]["end"] <= path["end"]
-                ):
-                    if "parent" not in gateway:
-                        pair["parallel_path"] = gateway["paths"].index(path)
-                    else:
-                        pair["parent_path"] = pair["parallel_path"]
-                        pair["parallel_path"] = gateway["paths"].index(path)
-
-    return agent_task_pairs, parallel_gateways
+    return parallel_gateways
 
 
 def process_text(text):
@@ -894,9 +872,7 @@ def process_text(text):
     agent_task_pairs = create_agent_task_pairs(agents, tasks, sents_data)
 
     if has_parallel_keywords(text):
-        agent_task_pairs, parallel_gateway_data = handle_text_with_parallel_keywords(
-            agent_task_pairs, text
-        )
+        parallel_gateway_data = handle_text_with_parallel_keywords(text)
         write_to_file("parallel_gateway_data.json", parallel_gateway_data)
 
     if len(conditions) > 0:
