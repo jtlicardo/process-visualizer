@@ -113,7 +113,7 @@ def number_of_parallel_paths(parallel_gateway: str) -> str:
 
 def extract_parallel_tasks(sentence: str) -> str:
 
-    extract_parallel_tasks_template = 'You will receive a sentence that contains multiple tasks being done in parallel.\nExtract the tasks being done in parallel in the following format (the number of tasks may vary):\nTask 1: <task>\nTask 2: <task>\n\n###\n\nSentence: "The chef is simultaneously preparing the entree and dessert dishes."\nTask 1: prepare the entree\nTask 2: prepare the dessert dishes\n\nSentence: "The chef chops the vegetables, stirs the soup, and adds spices to the pot simultaneously."\nTask 1: chop the vegetables\nTask 2: stir the soup\nTask 3: add spices\n\nSentence: "The project manager is coordinating with the design team and development team concurrently."\nTask 1: coordinate with the design team\nTask 2: coordinate with the development team\n\nSentence: "{}"'
+    extract_parallel_tasks_template = 'You will receive a sentence that contains multiple tasks being done in parallel.\nExtract the tasks being done in parallel in the following format (the number of tasks may vary):\nTask 1: <task>\nTask 2: <task>\n\n###\n\nSentence: "The chef is simultaneously preparing the entree and dessert dishes."\nTask 1: prepare the entree\nTask 2: prepare the dessert dishes\n\nSentence: "The project manager coordinates with the design team, the development team and the QA team concurrently."\nTask 1: coordinate with the design team\nTask 2: coordinate with the development team\nTask 3: coordinate with the QA team\n\nSentence: "{}"'
 
     user_msg = extract_parallel_tasks_template.format(sentence)
 
