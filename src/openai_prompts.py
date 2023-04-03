@@ -111,6 +111,29 @@ def number_of_parallel_paths(parallel_gateway: str) -> str:
     return completion.choices[0].message["content"]
 
 
+def extract_parallel_tasks(sentence: str) -> str:
+
+    extract_parallel_tasks_template = 'You will receive a sentence that contains multiple tasks being done in parallel.\nExtract the tasks being done in parallel in the following format (the number of tasks may vary):\nTask 1: <task>\nTask 2: <task>\n\n###\n\nSentence: "The chef is simultaneously preparing the entree and dessert dishes."\nTask 1: prepare the entree\nTask 2: prepare the dessert dishes\n\nSentence: "The chef chops the vegetables, stirs the soup, and adds spices to the pot simultaneously."\nTask 1: chop the vegetables\nTask 2: stir the soup\nTask 3: add spices\n\nSentence: "The project manager is coordinating with the design team and development team concurrently."\nTask 1: coordinate with the design team\nTask 2: coordinate with the development team\n\nSentence: "{}"'
+
+    user_msg = extract_parallel_tasks_template.format(sentence)
+
+    model = "gpt-3.5-turbo"
+
+    completion = openai.ChatCompletion.create(
+        model=model,
+        messages=[
+            {"role": "user", "content": user_msg},
+        ],
+        temperature=0,
+        max_tokens=256,
+    )
+
+    print(f'{completion["usage"]["total_tokens"]} tokens used ({model})')
+
+    print("Parallel tasks:", completion.choices[0].message["content"], "\n")
+    return completion.choices[0].message["content"]
+
+
 def extract_3_parallel_paths(parallel_gateway: str) -> str:
 
     extract_3_parallel_paths_template = "You will receive a process which contains 3 parallel paths.\nExtract the 3 spans of text that belong to the 3 parallel paths in the following format: <path> && <path> && <path>\nYou must extract the entire span of text that belongs to a given path, not just a part of it.\nUse the && symbols only twice.\n\n###\n\nProcess: the first thing is the kitchen team analyzing the ideas for practicality. The kitchen team also creates the recipe. The second path involves the customer service team conducting market research for the dishes. At the same time, the art team creates visual concepts for the potential dishes. The third path sees the accountants reviewing the potential cost of the dishes.\nPaths: the kitchen team analyzing the ideas for practicality. The kitchen team also creates the recipe && the customer service team conducting market research for the dishes. At the same time, the art team creates visual concepts for the potential dishes && the accountants reviewing the potential cost of the dishes\n\nProcess: The R&D team researches and develops new technologies for the product. The next thing happening in parallel is the UX team designing the user interface and user experience. The interface has to be intuitive and user-friendly. The final thing occuring at the same time is when the QA team tests the product.\nPaths: The R&D team researches and develops new technologies for the product && the UX team designing the user interface and user experience && the QA team tests the product\n\nProcess: {}\nPaths:"
@@ -129,9 +152,14 @@ def extract_3_parallel_paths(parallel_gateway: str) -> str:
         max_tokens=256,
     )
 
+    paths = completion.choices[0].message["content"]
     print(f'{completion["usage"]["total_tokens"]} tokens used ({model})')
 
-    print("Parallel paths:", completion.choices[0].message["content"], "\n")
+    assert (
+        "&&" in paths and paths.count("&&") == 2
+    ), "Model did not return 3 parallel paths"
+
+    print("Parallel paths:", paths, "\n")
     return completion.choices[0].message["content"]
 
 
@@ -156,7 +184,7 @@ def extract_2_parallel_paths(parallel_gateway: str) -> str:
     paths = completion.choices[0].message["content"]
     print(f'{completion["usage"]["total_tokens"]} tokens used ({model})')
 
-    assert "&&" in paths, "Missing '&&' in parallel paths"
+    assert "&&" in paths, "Model did not return 2 parallel paths"
 
     print("Parallel paths:", paths, "\n")
     return paths
