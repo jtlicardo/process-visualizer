@@ -1,6 +1,6 @@
 # Process visualizer
 
-This is an application that aims to convert textual descriptions of processes into simplified BPMN diagrams.
+This is an application that aims to convert textual descriptions of processes into simplified BPMN diagrams. The application uses NLP tools like spaCy and a fine-tuned BERT model for token classification to extract key information from the text. Additionally, the application leverages OpenAI's models such as `gpt-3.5-turbo` and `gpt-4` to perform advanced tasks related to process description analysis. Finally, Graphviz is used to produce the final diagram.
 
 The app supports the following BPMN elements:
 
