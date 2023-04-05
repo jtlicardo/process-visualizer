@@ -40,6 +40,30 @@ def extract_exclusive_gateways(process_description: str) -> str:
     return completion.choices[0].message["content"]
 
 
+def extract_exclusive_gateways_2_conditions(process_description: str) -> str:
+
+    extract_exclusive_gateways_template = "You will receive a description of a process which contains conditions. Extract the text which belongs to a specific exclusive gateway. You have to extract all the tasks that follow from the conditions in the exclusive gateway, not only the immediate tasks.\n\n###\n\nProcess: 'If the client opts for funding, they will have to complete a loan request. Then, the client submits the application to the financial institution. If the client decides to pay with currency, they will need to bring the full amount of the vehicle's cost to the dealership to finalize the purchase. Once the client has chosen to fund or pay with currency, they must sign the agreement before concluding the transaction.'\nExclusive gateway 1: If the client opts for funding, they will have to complete a loan request. Then, the client submits the application to the financial institution. If the client decides to pay with currency, they will need to bring the full amount of the vehicle's cost to the dealership to finalize the purchase.\n\nProcess: 'If the student scores below 60%, he takes the exam again. If the student scores 60% or higher on the exam, the professor enters the grade.'\nExclusive gateway 1: If the student scores below 60%, he takes the exam again. If the student scores 60% or higher on the exam, the professor enters the grade.\n\nProcess: 'If the student is rejected, the employer notifies the student. If the student is accepted, the professor notifies the student via email and Slack in parallel. The student then fills out the application form. The student hands in his internship journal. Finally, the professor updates the Airtable database and the process ends.'\nExclusive gateway 1: If the student is rejected, the employer notifies the student. If the student is accepted, the professor notifies the student via email and Slack in parallel. The student then fills out the application form. The student hands in his internship journal. Finally, the professor updates the Airtable database and the process ends.\n\nProcess: '{}'"
+
+    user_msg = extract_exclusive_gateways_template.format(process_description)
+
+    model = get_model()
+
+    completion = openai.ChatCompletion.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": SYSTEM_MSG},
+            {"role": "user", "content": user_msg},
+        ],
+        temperature=0,
+        max_tokens=256,
+    )
+
+    print(f'{completion["usage"]["total_tokens"]} tokens used ({model})')
+
+    print(completion.choices[0].message["content"], "\n")
+    return completion.choices[0].message["content"]
+
+
 def extract_gateway_conditions(process_description: str, conditions: str) -> str:
 
     extract_gateway_conditions_template = "You will receive a description of a process and a list of conditions that appear in the process. Determine which conditions belong to which exclusive gateway. Determine which conditions belong to which exclusive gateway. Use only the conditions that are listed, do not take anything else from the process description.\n\n###\n\nProcess: 'The customer decides if he wants to finance or pay in cash. If the customer chooses to finance, the customer will need to fill out a loan application. If the customer chooses to pay in cash, the customer will need to bring the total cost of the car to the dealership in order to complete the transaction.'\nConditions: If the customer chooses to finance', 'If the customer chooses to pay in cash'\nExclusive gateway 1: If the customer chooses to finance || If the customer chooses to pay in cash\n\nProcess: 'The restaurant receives the food order from the customer. If the dish is not available, the customer is informed that the order cannot be fulfilled. If the dish is available and the payment is successful, the restaurant prepares and serves the order. If the dish is available, but the payment fails, the customer is notified that the order cannot be processed.'\nConditions: 'If the dish is not available', 'If the dish is available and the payment is successful', 'If the dish is available, but the payment fails'\nExclusive gateway 1: If the dish is not available || If the dish is available and the payment is successful || If the dish is available, but the payment fails\n\nProcess: 'The customer places an order on the website. The system checks the inventory status of the ordered item. If the item is in stock, the system checks the customer's payment information. If the item is out of stock, the system sends an out of stock notification to the customer and cancels the order. After checking the customer's payment info, if the payment is authorized, the system generates an order confirmation and sends it to the customer, and the order is sent to the warehouse for shipping. If the payment is declined, the system sends a payment declined notification to the customer and cancels the order.'\nConditions: 'If the item is in stock', 'If the item is out of stock', 'if the payment is authorized', 'If the payment is declined'\nExclusive gateway 1: If the item is in stock || If the item is out of stock\nExclusive gateway 2: if the payment is authorized || If the payment is declined\n\nProcess: 'The process begins with the student choosing his preferences. Then the professor allocates the student. After that the professor notifies the student. The employer evaluates the candidate. If the student is accepted, the professor notifies the student. The student then completes his internship. If the student is successful, he gets a passing grade'\nConditions: 'If the student is accepted','If the student is successful'\nExclusive gateway 1: If the student is accepted\nExclusive gateway 2: If the student is successful\n\nProcess: {}\nConditions: {}"

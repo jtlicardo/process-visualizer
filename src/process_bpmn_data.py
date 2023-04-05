@@ -468,7 +468,11 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
     first_condition_start = conditions[0]["start"]
     exclusive_gateway_text = process_description[first_condition_start:]
 
-    response = prompts.extract_exclusive_gateways(exclusive_gateway_text)
+    if len(conditions) == 2:
+        response = prompts.extract_exclusive_gateways_2_conditions(exclusive_gateway_text)
+    else:
+        response = prompts.extract_exclusive_gateways(exclusive_gateway_text)
+    
     pattern = r"Exclusive gateway \d+: (.+?)(?=(?:Exclusive gateway \d+:|$))"
     matches = re.findall(pattern, response, re.DOTALL)
     gateways = [s.strip() for s in matches]
