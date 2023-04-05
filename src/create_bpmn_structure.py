@@ -113,6 +113,9 @@ def nest_gateways(all_gateways):
 
     def insert_in_sorted_order(children, gateway):
         index = 0
+        if len(children) == 0:
+            children.append(gateway)
+            return
         child_start_idx = (
             children[0]["content"]["task"]["start"]
             if children[0]["type"] == "task"
@@ -171,7 +174,7 @@ if __name__ == "__main__":
     parallel_gateway_data = []
     exclusive_gateway_data = []
 
-    with open("output_logs/agent_task_pairs.json", "r") as file:
+    with open("output_logs/agent_task_pairs_final.json", "r") as file:
         agent_task_pairs = file.read()
     agent_task_pairs = json.loads(agent_task_pairs)
 
