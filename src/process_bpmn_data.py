@@ -3,6 +3,7 @@ import re
 
 import requests
 import spacy
+from colorama import Fore
 from spacy.matcher import Matcher
 from thefuzz import fuzz
 
@@ -79,7 +80,9 @@ def extract_bpmn_data(text: str) -> list:
     write_to_file("model_output.json", data)
 
     if "error" in data:
-        print("Error when extracting BPMN data:", data["error"])
+        print(
+            f"{Fore.RED}Error when extracting BPMN data: {data['error']}{Fore.RESET}\n"
+        )
         return None
 
     return data
@@ -144,7 +147,9 @@ def classify_process_info(text: str) -> dict:
     )
 
     if "error" in data:
-        print("Error when classifying PROCESS_INFO entity:", data["error"])
+        print(
+            f"{Fore.RED}Error when classifying PROCESS_INFO entity: {data['error']}{Fore.RESET}\n"
+        )
         return None
 
     return data
