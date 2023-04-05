@@ -300,6 +300,7 @@ class GraphGenerator:
             and local_index != 0
             and "condition" not in element["content"]
             and not self.dict_is_direct_child(element, parent_gateway)
+            and previous_element["type"] == "task"
         ):
             self.connect(f"T{self.task_counter - 2}", f"T{self.task_counter - 1}")
         elif local_index is None and self.last_completed_type == "task":
