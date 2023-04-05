@@ -188,3 +188,26 @@ def extract_2_parallel_paths(parallel_gateway: str) -> str:
 
     print("Parallel paths:", paths, "\n")
     return paths
+
+
+def find_previous_task(task: str, previous_tasks: str) -> str:
+
+    find_previous_task_template = "You will receive a description of a task. You need to determine which task is the description referring to. Respond with the text of the correct choice.\n\nTask: '{}'\n\nChoices:\n{}"
+
+    user_msg = find_previous_task_template.format(task, previous_tasks)
+
+    model = "gpt-3.5-turbo"
+
+    completion = openai.ChatCompletion.create(
+        model=model,
+        messages=[
+            {"role": "user", "content": user_msg},
+        ],
+        temperature=0,
+        max_tokens=64,
+    )
+
+    print(f'{completion["usage"]["total_tokens"]} tokens used ({model})')
+
+    print("Previous task:", completion.choices[0].message["content"], "\n")
+    return completion.choices[0].message["content"]

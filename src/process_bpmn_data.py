@@ -3,7 +3,6 @@ import re
 
 import requests
 import spacy
-from sentence_transformers import SentenceTransformer, util
 from spacy.matcher import Matcher
 from thefuzz import fuzz
 
@@ -363,41 +362,6 @@ def find_sentences_with_loop_keywords(sentences):
     return detected_sentences
 
 
-def compare_tasks(task1: str, task2: str) -> float:
-    """
-    Compares two tasks using the sentence-transformers model
-    Args:
-        task1 (str): the first task
-        task2 (str): the second task
-    Returns:
-        float: the cosine similarity score
-    """
-    model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-    embeddings1 = model.encode(task1, convert_to_tensor=True)
-    embeddings2 = model.encode(task2, convert_to_tensor=True)
-    cosine_scores = util.cos_sim(embeddings1, embeddings2)
-    return cosine_scores[0][0]
-
-
-def find_task_with_highest_similarity(task: dict, list: list) -> str:
-    """
-    Finds the task in the list that has the highest cosine similarity with the given task
-    Args:
-        task (dict): the task to compare
-        list (list): the list of tasks to compare with
-    Returns:
-        str: the task with the highest cosine similarity
-    """
-    highest_cosine_similarity = 0
-    highest_cosine_similarity_task = None
-    for t in list:
-        cosine_similarity = compare_tasks(task["word"], t["word"])
-        if cosine_similarity > highest_cosine_similarity:
-            highest_cosine_similarity = cosine_similarity
-            highest_cosine_similarity_task = t
-    return highest_cosine_similarity_task
-
-
 def add_task_ids(agent_task_pairs, sentences, loop_sentences):
     """
     Adds task ids to tasks that are not in a sentence with a loop keyword.
@@ -423,32 +387,36 @@ def add_loops(agent_task_pairs, sentences, loop_sentences):
     """
     Adds go_to fields to tasks that are in a sentence with a loop keyword.
     """
-    updated_agent_task_pairs = []
     previous_tasks = []
 
     for pair in agent_task_pairs:
-
         task = pair["task"]
-
         for sent in sentences:
-
-            if sent["start"] <= task["start"] <= sent["end"]:
-
+            if task["start"] in range(sent["start"], sent["end"] + 1):
                 if sent in loop_sentences:
-                    highest_similarity_task = find_task_with_highest_similarity(
-                        task, previous_tasks
+                    
+                    previous_tasks_str = "\n".join(
+                        map(lambda task: task["word"], previous_tasks)
                     )
-                    if highest_similarity_task is not None:
-                        pair["go_to"] = highest_similarity_task["task_id"]
-                        pair["start"] = pair["task"]["start"]
-                        del pair["task"]
-                        del pair["agent"]
+                    
+                    previous_task = prompts.find_previous_task(task["word"], previous_tasks_str)
+                    
+                    highest_similarity_task = None
+                    highest_similarity = 0
+                    for task in previous_tasks:
+                        similarity = fuzz.ratio(previous_task, task["word"])
+                        if similarity > highest_similarity:
+                            highest_similarity = similarity
+                            highest_similarity_task = task
+
+                    pair["go_to"] = highest_similarity_task["task_id"]
+                    pair["start"] = pair["task"]["start"]
+                    del pair["task"]
+                    del pair["agent"]
                 else:
                     previous_tasks.append(task)
 
-        updated_agent_task_pairs.append(pair)
-
-    return updated_agent_task_pairs
+    return agent_task_pairs
 
 
 def add_exclusive_gateway_ids(
