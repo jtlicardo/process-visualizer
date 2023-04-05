@@ -113,16 +113,18 @@ def nest_gateways(all_gateways):
 
     def insert_in_sorted_order(children, gateway):
         index = 0
-        try:
-            child_start_idx = (
-                children[0]["content"]["task"]["start"]
-                if children[0]["type"] == "task"
-                else children[0]["start"]
-            )
-        except IndexError:
-            pass
+        child_start_idx = (
+            children[0]["content"]["task"]["start"]
+            if children[0]["type"] == "task"
+            else children[0]["start"]
+        )
         while index < len(children) and child_start_idx < gateway["start"]:
             index += 1
+            child_start_idx = (
+                children[index]["content"]["task"]["start"]
+                if children[index]["type"] == "task"
+                else children[index]["start"]
+            )
         children.insert(index, gateway)
 
     for gateway in all_gateways:
