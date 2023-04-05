@@ -394,13 +394,15 @@ def add_loops(agent_task_pairs, sentences, loop_sentences):
         for sent in sentences:
             if task["start"] in range(sent["start"], sent["end"] + 1):
                 if sent in loop_sentences:
-                    
+
                     previous_tasks_str = "\n".join(
                         map(lambda task: task["word"], previous_tasks)
                     )
-                    
-                    previous_task = prompts.find_previous_task(task["word"], previous_tasks_str)
-                    
+
+                    previous_task = prompts.find_previous_task(
+                        task["word"], previous_tasks_str
+                    )
+
                     highest_similarity_task = None
                     highest_similarity = 0
                     for task in previous_tasks:
@@ -469,10 +471,12 @@ def extract_exclusive_gateways(process_description: str, conditions: list) -> li
     exclusive_gateway_text = process_description[first_condition_start:]
 
     if len(conditions) == 2:
-        response = prompts.extract_exclusive_gateways_2_conditions(exclusive_gateway_text)
+        response = prompts.extract_exclusive_gateways_2_conditions(
+            exclusive_gateway_text
+        )
     else:
         response = prompts.extract_exclusive_gateways(exclusive_gateway_text)
-    
+
     pattern = r"Exclusive gateway \d+: (.+?)(?=(?:Exclusive gateway \d+:|$))"
     matches = re.findall(pattern, response, re.DOTALL)
     gateways = [s.strip() for s in matches]
@@ -901,12 +905,12 @@ def get_agent_task_pair_index(agent_task_pairs, indices):
 def count_sentences_spanned(sentence_data, indices, buffer):
     count = 0
 
-    indices["start"] += buffer
-    indices["end"] -= buffer
+    idx_start = indices["start"] + buffer
+    idx_end = indices["end"] - buffer
 
     for sentence_info in sentence_data:
-        if (sentence_info["start"] <= indices["start"] <= sentence_info["end"]) or (
-            sentence_info["start"] <= indices["end"] <= sentence_info["end"]
+        if (sentence_info["start"] <= idx_start <= sentence_info["end"]) or (
+            sentence_info["start"] <= idx_end <= sentence_info["end"]
         ):
             count += 1
 
@@ -962,6 +966,8 @@ def process_text(text):
 
     agent_task_pairs = create_agent_task_pairs(agents, tasks, sents_data)
 
+    write_to_file("agent_task_pairs_initial.json", agent_task_pairs)
+
     if has_parallel_keywords(text):
         parallel_gateway_data = handle_text_with_parallel_keywords(
             text, agent_task_pairs, sents_data
@@ -984,7 +990,7 @@ def process_text(text):
     agent_task_pairs = add_task_ids(agent_task_pairs, sents_data, loop_sentences)
     agent_task_pairs = add_loops(agent_task_pairs, sents_data, loop_sentences)
 
-    write_to_file("agent_task_pairs.json", agent_task_pairs)
+    write_to_file("agent_task_pairs_final.json", agent_task_pairs)
 
     structure = create_bpmn_structure(
         agent_task_pairs, parallel_gateway_data, exclusive_gateway_data
