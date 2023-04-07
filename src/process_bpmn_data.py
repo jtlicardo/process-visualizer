@@ -19,7 +19,7 @@ ZERO_SHOT_CLASSIFICATION_ENDPOINT = (
 )
 
 
-def get_sentences(text: str) -> list:
+def get_sentences(text: str) -> list[str]:
     """
     Creates a list of sentences from a given text.
     Args:
@@ -34,7 +34,7 @@ def get_sentences(text: str) -> list:
     return sentences
 
 
-def create_sentence_data(text: str) -> list:
+def create_sentence_data(text: str) -> list[dict]:
     """
     Creates a list of dictionaries containing the sentence data (sentence, start index, end index)
     Args:
@@ -57,13 +57,21 @@ def create_sentence_data(text: str) -> list:
     return sentence_data
 
 
-def query(payload, endpoint):
+def query(payload: dict, endpoint: str) -> list:
+    """
+    Sends a POST request to the specified endpoint with the given payload in JSON format, and returns the response.
+    Args:
+        payload (dict): the payload to send to the endpoint
+        endpoint (str): the endpoint to send the request to
+    Returns:
+        list: the response from the endpoint
+    """
     data = json.dumps(payload)
     response = requests.request("POST", endpoint, data=data)
     return json.loads(response.content.decode("utf-8"))
 
 
-def extract_bpmn_data(text: str) -> list:
+def extract_bpmn_data(text: str) -> list[dict[str, any]]:
     """
     Extracts BPMN data from the process description by calling the model endpoint hosted on Hugging Face.
     Args:
@@ -88,7 +96,7 @@ def extract_bpmn_data(text: str) -> list:
     return data
 
 
-def fix_bpmn_data(data: list) -> list:
+def fix_bpmn_data(data: list[dict[str, any]]) -> list[dict[str, any]]:
     """
     If the model that extracts BPMN data splits a word into multiple tokens for some reason,
     this function fixes the output by combining the tokens into a single word.
@@ -128,7 +136,7 @@ def fix_bpmn_data(data: list) -> list:
     return data
 
 
-def classify_process_info(text: str) -> dict:
+def classify_process_info(text: str) -> dict[str, any]:
     """
     Classifies a PROCESS_INFO entity by calling the model endpoint hosted on Hugging Face.
     Args:
@@ -155,7 +163,9 @@ def classify_process_info(text: str) -> dict:
     return data
 
 
-def batch_classify_process_info(process_info_entities: list) -> list:
+def batch_classify_process_info(
+    process_info_entities: list[dict[str, any]]
+) -> list[dict[str, any]]:
     """
     Classifies a list of PROCESS_INFO entities into PROCESS_START or PROCESS_END.
     Args:
@@ -183,97 +193,125 @@ def batch_classify_process_info(process_info_entities: list) -> list:
     return updated_entities
 
 
-def extract_entities(type: str, data: list) -> list:
+def extract_entities(
+    type: str, data: list[dict[str, any]], min_score: float
+) -> list[dict[str, any]]:
     """
     Extracts all entities of a given type from the model output
     Args:
         type (str): the type of entity to extract
         data (list): the model output
+        min_score (float): the minimum score an entity must have to be extracted
     Returns:
         list: a list of entities of the given type
     """
-    agents = []
-    for entity in data:
-        if entity["entity_group"] == type and entity["score"] > 0.5:
-            agents.append(entity)
-    return agents
+    return [
+        entity
+        for entity in data
+        if entity["entity_group"] == type and entity["score"] > min_score
+    ]
 
 
-def create_agent_task_pairs(agents, tasks, sentences):
+def create_agent_task_pairs(
+    agents: list[dict[str, any]],
+    tasks: list[dict[str, any]],
+    sentence_data: list[dict[str, any]],
+) -> list[dict[str, any]]:
     """
     Combines agents and tasks into agent-task pairs based on the sentence they appear in.
     Args:
         agents (list): a list of agents
         tasks (list): a list of tasks
-        sentences (list): a list of sentence data
+        sentence_data (list): a list of sentence data containing the start and end indices of each sentence, and the sentence itself
     Returns:
         list: a list of agent-task pairs (each pair is a dictionary containing the agent, task and sentence index)
     """
 
-    agents_in_sentences = []
-    tasks_in_sentences = []
-    agent_task_pairs = []
+    agents_in_sentences = [
+        {"sentence_idx": i, "agent": agent}
+        for agent in agents
+        for i, sent in enumerate(sentence_data)
+        if sent["start"] <= agent["start"] <= sent["end"]
+    ]
 
-    for agent in agents:
-        for i, sent in enumerate(sentences):
-            if sent["start"] <= agent["start"] <= sent["end"]:
-                agents_in_sentences.append({"index": i, "agent": agent})
+    tasks_in_sentences = [
+        {"sentence_idx": i, "task": task}
+        for task in tasks
+        for i, sent in enumerate(sentence_data)
+        if sent["start"] <= task["start"] <= sent["end"]
+    ]
 
-    for task in tasks:
-        for i, sent in enumerate(sentences):
-            if sent["start"] <= task["start"] <= sent["end"]:
-                tasks_in_sentences.append({"index": i, "task": task})
+    multi_agent_sentences_idx = [
+        agent["sentence_idx"]
+        for i, agent in enumerate(agents_in_sentences)
+        if i != len(agents_in_sentences) - 1
+        and agent["sentence_idx"] == agents_in_sentences[i + 1]["sentence_idx"]
+        and agent["sentence_idx"] not in multi_agent_sentences_idx
+    ]
 
-    multi_agent_sentences_idx = []
-    multi_agent_sentences = []
-
-    # Check if multiple agents appear in the same sentence
-    for i, agent in enumerate(agents_in_sentences):
-        if i != len(agents_in_sentences) - 1:
-            if agent["index"] == agents_in_sentences[i + 1]["index"]:
-                print(
-                    "Multiple agents in sentence:",
-                    sentences[agent["index"]]["sentence"],
-                    "\n",
-                )
-                multi_agent_sentences_idx.append(agent["index"])
-
-    # For sentences that contain multiple agents, connect agents and tasks based on their order in the sentence
-    # For example, if the sentence is "A does B and C does D", then the agent-task pairs are (A, B) and (C, D)
-
-    for idx in multi_agent_sentences_idx:
-        sentence_data = {
-            "sentence_idx": idx,
-            "agents": [agent for agent in agents_in_sentences if agent["index"] == idx],
-            "tasks": [task for task in tasks_in_sentences if task["index"] == idx],
+    agent_task_pairs = [
+        {
+            "agent": agent["agent"],
+            "task": task["task"],
+            "sentence_idx": task["sentence_idx"],
         }
-        multi_agent_sentences.append(sentence_data)
+        for agent in agents_in_sentences
+        for task in tasks_in_sentences
+        if (
+            agent["sentence_idx"] == task["sentence_idx"]
+            and agent["sentence_idx"] not in multi_agent_sentences_idx
+        )
+    ]
 
-    for sentence in multi_agent_sentences:
-        for i, agent in enumerate(sentence["agents"]):
-            agent_task_pairs.append(
-                {
-                    "agent": agent["agent"],
-                    "task": sentence["tasks"][i]["task"],
-                    "sentence_idx": sentence["sentence_idx"],
-                }
-            )
-
-    for agent in agents_in_sentences:
-        for task in tasks_in_sentences:
-            if (
-                agent["index"] == task["index"]
-                and agent["index"] not in multi_agent_sentences_idx
-            ):
-                agent_task_pairs.append(
-                    {
-                        "agent": agent["agent"],
-                        "task": task["task"],
-                        "sentence_idx": task["index"],
-                    }
-                )
+    if len(multi_agent_sentences_idx) > 0:
+        multi_agent_task_pairs = handle_multi_agent_sentences(
+            agents_in_sentences, tasks_in_sentences, multi_agent_sentences_idx
+        )
+        agent_task_pairs.extend(multi_agent_task_pairs)
 
     agent_task_pairs = sorted(agent_task_pairs, key=lambda k: k["sentence_idx"])
+
+    return agent_task_pairs
+
+
+def handle_multi_agent_sentences(
+    agents_in_sentences: list[dict[str, any]],
+    tasks_in_sentences: list[dict[str, any]],
+    multi_agent_sentences_idx: list[int],
+) -> list[dict[str, any]]:
+    """
+    Creates agent-task pairs for sentences that contain multiple agents.
+    For example, if the sentence is "A does B and C does D", then the agent-task pairs are (A, B) and (C, D)
+    Args:
+        agents_in_sentences (list): a list of agents with their sentence indices
+        tasks_in_sentences (list): a list of tasks with their sentence indices
+        multi_agent_sentences_idx (list): a list of sentence indices that contain multiple agents
+    Returns:
+        list: a list of agent-task pairs (each pair is a dictionary containing the agent, task and sentence index)
+    """
+
+    multi_agent_sentences = [
+        {
+            "sentence_idx": idx,
+            "agents": [
+                agent for agent in agents_in_sentences if agent["sentence_idx"] == idx
+            ],
+            "tasks": [
+                task for task in tasks_in_sentences if task["sentence_idx"] == idx
+            ],
+        }
+        for idx in multi_agent_sentences_idx
+    ]
+
+    agent_task_pairs = [
+        {
+            "agent": agent["agent"],
+            "task": sentence["tasks"][i]["task"],
+            "sentence_idx": sentence["sentence_idx"],
+        }
+        for sentence in multi_agent_sentences
+        for i, agent in enumerate(sentence["agents"])
+    ]
 
     return agent_task_pairs
 
@@ -673,20 +711,21 @@ def should_resolve_coreferences(text):
     return False
 
 
-def extract_all_entities(data: list) -> tuple:
+def extract_all_entities(data: list, min_score: float) -> tuple:
     """
     Extracts all entities from the model output.
     Args:
         data (list): model output
+        min_score (float): the minimum score for an entity to be extracted
     Returns:
         tuple: a tuple of lists containing the extracted entities
     """
 
     print("Extracting entities...\n")
-    agents = extract_entities("AGENT", data)
-    tasks = extract_entities("TASK", data)
-    conditions = extract_entities("CONDITION", data)
-    process_info = extract_entities("PROCESS_INFO", data)
+    agents = extract_entities("AGENT", data, min_score)
+    tasks = extract_entities("TASK", data, min_score)
+    conditions = extract_entities("CONDITION", data, min_score)
+    process_info = extract_entities("PROCESS_INFO", data, min_score)
     return (agents, tasks, conditions, process_info)
 
 
@@ -963,7 +1002,7 @@ def process_text(text):
 
     data = fix_bpmn_data(data)
 
-    agents, tasks, conditions, process_info = extract_all_entities(data)
+    agents, tasks, conditions, process_info = extract_all_entities(data, 0.5)
     parallel_gateway_data = []
     exclusive_gateway_data = []
 
