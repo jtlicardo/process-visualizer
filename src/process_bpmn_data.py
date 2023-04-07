@@ -241,12 +241,14 @@ def create_agent_task_pairs(
         if sent["start"] <= task["start"] <= sent["end"]
     ]
 
+    added_indices = set()
+
     multi_agent_sentences_idx = [
         agent["sentence_idx"]
-        for i, agent in enumerate(agents_in_sentences)
-        if i != len(agents_in_sentences) - 1
-        and agent["sentence_idx"] == agents_in_sentences[i + 1]["sentence_idx"]
-        and agent["sentence_idx"] not in multi_agent_sentences_idx
+        for i, agent in enumerate(agents_in_sentences[:-1])
+        if agent["sentence_idx"] == agents_in_sentences[i + 1]["sentence_idx"]
+        and agent["sentence_idx"] not in added_indices
+        and not added_indices.add(agent["sentence_idx"])
     ]
 
     agent_task_pairs = [
