@@ -318,7 +318,7 @@ def add_process_end_events(
     agent_task_pairs: list[dict],
     sentences: list[dict],
     process_info_entities: list[dict],
-) -> list:
+) -> list[dict]:
     """
     Adds process end events to agent-task pairs
     Args:
@@ -329,18 +329,16 @@ def add_process_end_events(
         list: a list of agent-task pairs with process end events
     """
 
-    process_end_events = []
-
-    for entity in process_info_entities:
-        if entity["entity_group"] == "PROCESS_END":
-            for sent in sentences:
-                if sent["start"] <= entity["start"] <= sent["end"]:
-                    process_end_events.append(
-                        {
-                            "process_end_event": entity,
-                            "sentence_idx": sentences.index(sent),
-                        }
-                    )
+    process_end_events = [
+        {
+            "process_end_event": entity,
+            "sentence_idx": sentences.index(sent),
+        }
+        for entity in process_info_entities
+        if entity["entity_group"] == "PROCESS_END"
+        for sent in sentences
+        if sent["start"] <= entity["start"] <= sent["end"]
+    ]
 
     for pair in agent_task_pairs:
         for event in process_end_events:
@@ -351,66 +349,77 @@ def add_process_end_events(
 
 
 def has_parallel_keywords(text: str) -> bool:
+    """
+    Checks if a text contains parallel keywords
+    Args:
+        text (str): the text to check
+    Returns:
+        bool: True if the text contains parallel keywords, False otherwise
+    """
+
     nlp = spacy.load("en_core_web_md")
     matcher = Matcher(nlp.vocab)
-    pattern_1 = [{"LOWER": "in"}, {"LOWER": "the"}, {"LOWER": "meantime"}]
-    pattern_2 = [
-        {"LOWER": "at"},
-        {"LOWER": "the"},
-        {"LOWER": "same"},
-        {"LOWER": "time"},
+
+    patterns = [
+        [{"LOWER": "in"}, {"LOWER": "the"}, {"LOWER": "meantime"}],
+        [{"LOWER": "at"}, {"LOWER": "the"}, {"LOWER": "same"}, {"LOWER": "time"}],
+        [{"LOWER": "meanwhile"}],
+        [{"LOWER": "while"}],
+        [{"LOWER": "in"}, {"LOWER": "parallel"}],
+        [{"LOWER": "concurrently"}],
+        [{"LOWER": "simultaneously"}],
     ]
-    pattern_3 = [{"LOWER": "meanwhile"}]
-    pattern_4 = [{"LOWER": "while"}]
-    pattern_5 = [{"LOWER": "in"}, {"LOWER": "parallel"}]
-    pattern_6 = [{"LOWER": "concurrently"}]
-    pattern_7 = [{"LOWER": "simultaneously"}]
 
     matcher.add(
         "PARALLEL",
-        [pattern_1, pattern_2, pattern_3, pattern_4, pattern_5, pattern_6, pattern_7],
+        patterns,
     )
 
     doc = nlp(text)
 
     matches = matcher(doc)
 
-    if len(matches) > 0:
-        return True
-
-    return False
+    return len(matches) > 0
 
 
-def find_sentences_with_loop_keywords(sentences):
+def find_sentences_with_loop_keywords(sentences: list[dict]) -> list[dict]:
+    """
+    Returns sentences that contain loop keywords
+    Args:
+        sentences (list): list of sentence data
+    Returns:
+        list: list of sentences that contain loop keywords
+    """
 
     nlp = spacy.load("en_core_web_md")
-
     matcher = Matcher(nlp.vocab)
 
-    pattern_1 = [{"LOWER": "again"}]
+    patterns = [
+        [{"LOWER": "again"}],
+    ]
 
-    matcher.add("LOOP", [pattern_1])
+    matcher.add("LOOP", patterns)
 
-    detected_sentences = []
-
-    for sent in sentences:
-
-        doc = nlp(sent["sentence"])
-
-        matches = matcher(doc)
-
-        if len(matches) > 0:
-            detected_sentences.append(sent)
+    detected_sentences = [
+        sent for sent in sentences if len(matcher(nlp(sent["sentence"]))) > 0
+    ]
 
     return detected_sentences
 
 
-def add_task_ids(agent_task_pairs, sentences, loop_sentences):
+def add_task_ids(
+    agent_task_pairs: list[dict], sentences: list[dict], loop_sentences: list[dict]
+) -> list[dict]:
     """
     Adds task ids to tasks that are not in a sentence with a loop keyword.
+    Args:
+        agent_task_pairs (list): a list of agent-task pairs
+        sentences (list): list of sentence data
+        loop_sentences (list): list of sentences that contain loop keywords
+    Returns:
+        list: a list of agent-task pairs with task ids
     """
 
-    updated_agent_task_pairs = []
     id = 0
 
     for pair in agent_task_pairs:
@@ -421,14 +430,20 @@ def add_task_ids(agent_task_pairs, sentences, loop_sentences):
                     pair["task"]["task_id"] = f"T{id}"
                     id += 1
 
-        updated_agent_task_pairs.append(pair)
-
-    return updated_agent_task_pairs
+    return agent_task_pairs
 
 
-def add_loops(agent_task_pairs, sentences, loop_sentences):
+def add_loops(
+    agent_task_pairs: list[dict], sentences: list[dict], loop_sentences: list[dict]
+) -> list[dict]:
     """
-    Adds go_to fields to tasks that are in a sentence with a loop keyword.
+    Adds go_to keys to tasks that are in a sentence with a loop keyword.
+    Args:
+        agent_task_pairs (list): a list of agent-task pairs
+        sentences (list): list of sentence data
+        loop_sentences (list): list of sentences that contain loop keywords
+    Returns:
+        list: a list of agent-task pairs with go_to keys
     """
     previous_tasks = []
 
@@ -438,23 +453,9 @@ def add_loops(agent_task_pairs, sentences, loop_sentences):
             if task["start"] in range(sent["start"], sent["end"] + 1):
                 if sent in loop_sentences:
 
-                    previous_tasks_str = "\n".join(
-                        map(lambda task: task["word"], previous_tasks)
-                    )
+                    previous_task = find_previous_task(previous_tasks, task)
 
-                    previous_task = prompts.find_previous_task(
-                        task["word"], previous_tasks_str
-                    )
-
-                    highest_similarity_task = None
-                    highest_similarity = 0
-                    for task in previous_tasks:
-                        similarity = fuzz.ratio(previous_task, task["word"])
-                        if similarity > highest_similarity:
-                            highest_similarity = similarity
-                            highest_similarity_task = task
-
-                    pair["go_to"] = highest_similarity_task["task_id"]
+                    pair["go_to"] = previous_task["task_id"]
                     pair["start"] = pair["task"]["start"]
                     del pair["task"]
                     del pair["agent"]
@@ -464,26 +465,28 @@ def add_loops(agent_task_pairs, sentences, loop_sentences):
     return agent_task_pairs
 
 
-def add_exclusive_gateway_ids(
-    agent_task_pairs: list, exlusive_gateway_data: list
-) -> list:
+def find_previous_task(previous_tasks: list[dict], task: dict) -> dict:
     """
-    Adds exclusive gateway ids and path ids to agent-task pairs.
+    Finds the previous task in the list of previous tasks that has the highest similarity to the current task.
     Args:
-        agent_task_pairs (list): the list of agent-task pairs
-        exlusive_gateway_data (list): the list of exclusive gateways
+        previous_tasks (list): list of previous tasks
+        task (dict): the current task
     Returns:
-        list: the list of agent-task pairs
+        dict: the previous task with the highest similarity to the current task
     """
 
-    for pair in agent_task_pairs:
-        for gateway in exlusive_gateway_data:
-            for path in gateway["paths"]:
-                if pair["task"]["start"] in range(path["start"], path["end"]):
-                    pair["exclusive_gateway_id"] = gateway["id"]
-                    pair["exclusive_gateway_path_id"] = gateway["paths"].index(path)
+    previous_tasks_str = "\n".join(map(lambda task: task["word"], previous_tasks))
+    previous_task = prompts.find_previous_task(task["word"], previous_tasks_str)
 
-    return agent_task_pairs
+    highest_similarity_task = None
+    highest_similarity = 0
+    for task in previous_tasks:
+        similarity = fuzz.ratio(previous_task, task["word"])
+        if similarity > highest_similarity:
+            highest_similarity = similarity
+            highest_similarity_task = task
+
+    return highest_similarity_task
 
 
 def extract_exclusive_gateways(process_description: str, conditions: list) -> list:
@@ -694,15 +697,17 @@ def handle_text_with_conditions(
 
     exclusive_gateway_data = extract_exclusive_gateways(process_desc, conditions)
 
-    updated_agent_task_pairs = add_exclusive_gateway_ids(
-        updated_agent_task_pairs,
-        exclusive_gateway_data,
-    )
-
     return updated_agent_task_pairs, exclusive_gateway_data
 
 
-def should_resolve_coreferences(text):
+def should_resolve_coreferences(text: str) -> bool:
+    """
+    Determines whether coreferences should be resolved.
+    Args:
+        text (str): the text
+    Returns:
+        bool: True if coreferences should be resolved, False otherwise
+    """
     nlp = spacy.load("en_core_web_sm")
     doc = nlp(text)
     for token in doc:
@@ -769,7 +774,15 @@ def get_indices(strings: list, text: str) -> list:
     return indices
 
 
-def get_parallel_paths(parallel_gateway, process_description):
+def get_parallel_paths(parallel_gateway: str, process_description: str) -> list[dict]:
+    """
+    Gets the start and end indices of the parallel paths in the process description.
+    Args:
+        parallel_gateway (str): the parallel gateway
+        process_description (str): the process description
+    Returns:
+        list: the list of start and end indices
+    """
     num = int(prompts.number_of_parallel_paths(parallel_gateway))
     assert num <= 3, "The maximum number of parallel paths is 3"
     paths = ""
@@ -786,7 +799,14 @@ def get_parallel_paths(parallel_gateway, process_description):
     return indices
 
 
-def get_parallel_gateways(text):
+def get_parallel_gateways(text: str) -> list[dict]:
+    """
+    Gets the indices of the parallel gateways in the text.
+    Args:
+        text (str): the text
+    Returns:
+        list: the list of start and end indices
+    """
     response = prompts.extract_parallel_gateways(text)
     pattern = r"Parallel gateway \d+: (.+?)(?=(?:Parallel gateway \d+:|$))"
     matches = re.findall(pattern, response, re.DOTALL)
@@ -925,7 +945,17 @@ def handle_text_with_parallel_keywords(
     return parallel_gateways
 
 
-def num_of_agent_task_pairs_in_range(agent_task_pairs, indices):
+def num_of_agent_task_pairs_in_range(
+    agent_task_pairs: list[dict], indices: dict[str, int]
+) -> int:
+    """
+    Gets the number of agent-task pairs in a given range of indices.
+    Args:
+        agent_task_pairs (list): the list of agent-task pairs
+        indices (dict): the start and end indices
+    Returns:
+        int: the number of agent-task pairs in the given range
+    """
     num_agent_task_pairs = 0
     for pair in agent_task_pairs:
         if (
@@ -936,7 +966,17 @@ def num_of_agent_task_pairs_in_range(agent_task_pairs, indices):
     return num_agent_task_pairs
 
 
-def get_agent_task_pair_index(agent_task_pairs, indices):
+def get_agent_task_pair_index(
+    agent_task_pairs: list[dict], indices: dict[str, int]
+) -> int:
+    """
+    Gets the index of the agent-task pair in a given range of indices (should only be one).
+    Args:
+        agent_task_pairs (list): the list of agent-task pairs
+        indices (dict): the start and end indices
+    Returns:
+        int: the index of the agent-task pair in the given range
+    """
     for idx, pair in enumerate(agent_task_pairs):
         if (
             pair["task"]["start"] >= indices["start"]
@@ -946,7 +986,18 @@ def get_agent_task_pair_index(agent_task_pairs, indices):
     return None
 
 
-def count_sentences_spanned(sentence_data, indices, buffer):
+def count_sentences_spanned(
+    sentence_data: list[dict], indices: dict[str, int], buffer: int
+) -> int:
+    """
+    Counts the number of sentences spanned by a given range of indices.
+    Args:
+        sentence_data (list): the list of sentence data
+        indices (dict): the start and end indices
+        buffer (int): the buffer to remove from the start and end indices
+    Returns:
+        int: the number of sentences spanned by the given range
+    """
     count = 0
 
     idx_start = indices["start"] + buffer
@@ -961,7 +1012,15 @@ def count_sentences_spanned(sentence_data, indices, buffer):
     return count
 
 
-def get_sentence_text(sentence_data, indices):
+def get_sentence_text(sentence_data: list[dict], indices: dict[str, int]) -> str:
+    """
+    Gets the text of the sentence that is inside a given range of indices (should only be one sentence)
+    Args:
+        sentence_data (list): the list of sentence data
+        indices (dict): the start and end indices
+    Returns:
+        str: the text of the sentence that is inside the given range
+    """
     for sentence_info in sentence_data:
         if (
             (sentence_info["start"] <= indices["start"] <= sentence_info["end"])
@@ -976,13 +1035,32 @@ def get_sentence_text(sentence_data, indices):
 
 
 def extract_tasks(model_response: str) -> list[str]:
+    """
+    Processes the model response to extract the tasks being done in parallel.
+    Example model response:
+        Task 1: prepare the entree
+        Task 2: prepare the dessert dishes
+    Example output:
+        ["prepare the entree", "prepare the dessert dishes"]
+    Args:
+        model_response (str): the model response
+    Returns:
+        list: the list of tasks
+    """
     pattern = r"Task \d+: (.+?)(?=(?:Task \d+:|$))"
     matches = re.findall(pattern, model_response, re.DOTALL)
     tasks = [s.strip() for s in matches]
     return tasks
 
 
-def process_text(text):
+def process_text(text: str) -> list[dict]:
+    """
+    Processes the text to create the BPMN structure (a list of dictionaries).
+    Args:
+        text (str): the text of the process description
+    Returns:
+        list: the list of dictionaries representing the BPMN structure
+    """
 
     clear_folder("./output_logs")
 
@@ -1045,15 +1123,25 @@ def process_text(text):
     return structure
 
 
-def generate_graph_pdf(input, notebook):
-
+def generate_graph_pdf(input: list[dict], notebook: bool) -> None:
+    """
+    Generates a graph of the BPMN structure and saves it as a PDF.
+    Args:
+        input (list): the list of dictionaries representing the BPMN structure
+        notebook (bool): whether the graph is being generated in a Jupyter notebook
+    """
     bpmn = GraphGenerator(input, notebook=notebook)
     print("Generating graph...\n")
     bpmn.generate_graph()
     bpmn.show()
 
 
-def generate_graph_image(input):
+def generate_graph_image(input: list[dict]) -> None:
+    """
+    Generates a graph of the BPMN structure and saves it as an image.
+    Args:
+        input (list): the list of dictionaries representing the BPMN structure
+    """
     bpmn = GraphGenerator(input, format="jpeg", notebook=False)
     print("Generating graph...\n")
     bpmn.generate_graph()

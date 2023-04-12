@@ -122,12 +122,12 @@ def nest_gateways(all_gateways):
             else children[0]["start"]
         )
         while index < len(children) and child_start_idx < gateway["start"]:
-            index += 1
             child_start_idx = (
                 children[index]["content"]["task"]["start"]
                 if children[index]["type"] == "task"
                 else children[index]["start"]
             )
+            index += 1
         children.insert(index, gateway)
 
     for gateway in all_gateways:
