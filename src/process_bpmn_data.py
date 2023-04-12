@@ -71,7 +71,7 @@ def query(payload: dict, endpoint: str) -> list:
     return json.loads(response.content.decode("utf-8"))
 
 
-def extract_bpmn_data(text: str) -> list[dict[str, any]]:
+def extract_bpmn_data(text: str) -> list[dict]:
     """
     Extracts BPMN data from the process description by calling the model endpoint hosted on Hugging Face.
     Args:
@@ -96,7 +96,7 @@ def extract_bpmn_data(text: str) -> list[dict[str, any]]:
     return data
 
 
-def fix_bpmn_data(data: list[dict[str, any]]) -> list[dict[str, any]]:
+def fix_bpmn_data(data: list[dict]) -> list[dict]:
     """
     If the model that extracts BPMN data splits a word into multiple tokens for some reason,
     this function fixes the output by combining the tokens into a single word.
@@ -136,7 +136,7 @@ def fix_bpmn_data(data: list[dict[str, any]]) -> list[dict[str, any]]:
     return data
 
 
-def classify_process_info(text: str) -> dict[str, any]:
+def classify_process_info(text: str) -> dict:
     """
     Classifies a PROCESS_INFO entity by calling the model endpoint hosted on Hugging Face.
     Args:
@@ -163,9 +163,7 @@ def classify_process_info(text: str) -> dict[str, any]:
     return data
 
 
-def batch_classify_process_info(
-    process_info_entities: list[dict[str, any]]
-) -> list[dict[str, any]]:
+def batch_classify_process_info(process_info_entities: list[dict]) -> list[dict]:
     """
     Classifies a list of PROCESS_INFO entities into PROCESS_START or PROCESS_END.
     Args:
@@ -193,9 +191,7 @@ def batch_classify_process_info(
     return updated_entities
 
 
-def extract_entities(
-    type: str, data: list[dict[str, any]], min_score: float
-) -> list[dict[str, any]]:
+def extract_entities(type: str, data: list[dict], min_score: float) -> list[dict]:
     """
     Extracts all entities of a given type from the model output
     Args:
@@ -213,10 +209,10 @@ def extract_entities(
 
 
 def create_agent_task_pairs(
-    agents: list[dict[str, any]],
-    tasks: list[dict[str, any]],
-    sentence_data: list[dict[str, any]],
-) -> list[dict[str, any]]:
+    agents: list[dict],
+    tasks: list[dict],
+    sentence_data: list[dict],
+) -> list[dict]:
     """
     Combines agents and tasks into agent-task pairs based on the sentence they appear in.
     Args:
@@ -277,10 +273,10 @@ def create_agent_task_pairs(
 
 
 def handle_multi_agent_sentences(
-    agents_in_sentences: list[dict[str, any]],
-    tasks_in_sentences: list[dict[str, any]],
+    agents_in_sentences: list[dict],
+    tasks_in_sentences: list[dict],
     multi_agent_sentences_idx: list[int],
-) -> list[dict[str, any]]:
+) -> list[dict]:
     """
     Creates agent-task pairs for sentences that contain multiple agents.
     For example, if the sentence is "A does B and C does D", then the agent-task pairs are (A, B) and (C, D)
@@ -319,7 +315,9 @@ def handle_multi_agent_sentences(
 
 
 def add_process_end_events(
-    agent_task_pairs: list, sentences: list, process_info_entities: list
+    agent_task_pairs: list[dict],
+    sentences: list[dict],
+    process_info_entities: list[dict],
 ) -> list:
     """
     Adds process end events to agent-task pairs
