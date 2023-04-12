@@ -366,6 +366,7 @@ def has_parallel_keywords(text: str) -> bool:
         [{"LOWER": "meanwhile"}],
         [{"LOWER": "while"}],
         [{"LOWER": "in"}, {"LOWER": "parallel"}],
+        [{"LOWER": "parallel"}, {"LOWER": "paths"}],
         [{"LOWER": "concurrently"}],
         [{"LOWER": "simultaneously"}],
     ]
