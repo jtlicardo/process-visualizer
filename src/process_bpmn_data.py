@@ -139,6 +139,7 @@ def fix_bpmn_data(data: list[dict]) -> list[dict]:
 def classify_process_info(text: str) -> dict:
     """
     Classifies a PROCESS_INFO entity by calling the model endpoint hosted on Hugging Face.
+    Possible classes: PROCESS_START, PROCESS_END, PROCESS_SPLIT, PROCESS_RETURN
     Args:
         text (str): sequence of text classified as process info
     Returns:
@@ -165,7 +166,7 @@ def classify_process_info(text: str) -> dict:
 
 def batch_classify_process_info(process_info_entities: list[dict]) -> list[dict]:
     """
-    Classifies a list of PROCESS_INFO entities into PROCESS_START or PROCESS_END.
+    Classifies a list of PROCESS_INFO entities into PROCESS_START, PROCESS_END, PROCESS_SPLIT or PROCESS_RETURN.
     Args:
         process_info_entities (list): a list of PROCESS_INFO entities
     Returns:
