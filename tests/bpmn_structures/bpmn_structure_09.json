@@ -1,0 +1,218 @@
+[
+    {
+        "content": {
+            "agent": {
+                "entity_group": "AGENT",
+                "score": 0.9957542419433594,
+                "word": "The clerk",
+                "start": 0,
+                "end": 9
+            },
+            "task": {
+                "entity_group": "TASK",
+                "score": 0.9959821105003357,
+                "word": "checks the files",
+                "start": 10,
+                "end": 26,
+                "task_id": "T0"
+            },
+            "sentence_idx": 0
+        },
+        "type": "task"
+    },
+    {
+        "id": "EG0",
+        "conditions": [
+            "If there are missing files",
+            "If there are no missing files"
+        ],
+        "start": 28,
+        "end": 178,
+        "paths": [
+            {
+                "start": 28,
+                "end": 107
+            },
+            {
+                "start": 108,
+                "end": 178
+            }
+        ],
+        "type": "exclusive",
+        "children": [
+            [
+                {
+                    "content": {
+                        "agent": {
+                            "entity_group": "AGENT",
+                            "score": 0.9964977502822876,
+                            "word": "the clerk",
+                            "start": 56,
+                            "end": 65
+                        },
+                        "task": {
+                            "entity_group": "TASK",
+                            "score": 0.9963507652282715,
+                            "word": "initiates the search",
+                            "start": 66,
+                            "end": 86,
+                            "task_id": "T1"
+                        },
+                        "sentence_idx": 1,
+                        "condition": {
+                            "entity_group": "CONDITION",
+                            "score": 0.9889280200004578,
+                            "word": "If there are missing files",
+                            "start": 28,
+                            "end": 54,
+                            "condition_id": "C1"
+                        }
+                    },
+                    "type": "task"
+                },
+                {
+                    "content": {
+                        "agent": {
+                            "entity_group": "AGENT",
+                            "score": 0.9964977502822876,
+                            "word": "the clerk",
+                            "start": 56,
+                            "end": 65
+                        },
+                        "task": {
+                            "entity_group": "TASK",
+                            "score": 0.9961795210838318,
+                            "word": "finds the files",
+                            "start": 91,
+                            "end": 106,
+                            "task_id": "T2"
+                        },
+                        "sentence_idx": 1
+                    },
+                    "type": "task"
+                }
+            ],
+            [
+                {
+                    "content": {
+                        "go_to": "T3"
+                    },
+                    "type": "continue"
+                }
+            ]
+        ]
+    },
+    {
+        "content": {
+            "agent": {
+                "entity_group": "AGENT",
+                "score": 0.9962010383605957,
+                "word": "the clerk",
+                "start": 178,
+                "end": 187
+            },
+            "task": {
+                "entity_group": "TASK",
+                "score": 0.9968031644821167,
+                "word": "tracks the physical files",
+                "start": 188,
+                "end": 213,
+                "task_id": "T3"
+            },
+            "sentence_idx": 3
+        },
+        "type": "task"
+    },
+    {
+        "id": "PG0",
+        "start": 256,
+        "end": 338,
+        "paths": [
+            {
+                "start": 256,
+                "end": 299
+            },
+            {
+                "start": 303,
+                "end": 337
+            }
+        ],
+        "type": "parallel",
+        "children": [
+            [
+                {
+                    "content": {
+                        "agent": {
+                            "entity_group": "AGENT",
+                            "score": 0.9958801865577698,
+                            "word": "the clerk",
+                            "start": 256,
+                            "end": 265
+                        },
+                        "task": {
+                            "entity_group": "TASK",
+                            "score": 0.9967991709709167,
+                            "word": "hands the files",
+                            "start": 266,
+                            "end": 281,
+                            "task_id": "T4"
+                        },
+                        "sentence_idx": 4
+                    },
+                    "type": "task"
+                }
+            ],
+            [
+                {
+                    "content": {
+                        "agent": {
+                            "entity_group": "AGENT",
+                            "score": 0.9937031269073486,
+                            "word": "the clerk",
+                            "start": 303,
+                            "end": 312
+                        },
+                        "task": {
+                            "entity_group": "TASK",
+                            "score": 0.996841549873352,
+                            "word": "distributes the lawlist",
+                            "start": 313,
+                            "end": 336,
+                            "task_id": "T5"
+                        },
+                        "sentence_idx": 4
+                    },
+                    "type": "task"
+                }
+            ]
+        ]
+    },
+    {
+        "content": {
+            "agent": {
+                "entity_group": "AGENT",
+                "score": 0.9935197830200195,
+                "word": "the clerk",
+                "start": 361,
+                "end": 370
+            },
+            "task": {
+                "entity_group": "TASK",
+                "score": 0.9963774681091309,
+                "word": "conducts the hearings",
+                "start": 371,
+                "end": 392,
+                "task_id": "T6"
+            },
+            "sentence_idx": 5,
+            "process_end_event": {
+                "entity_group": "PROCESS_END",
+                "score": 0.9915204644203186,
+                "word": "the process ends",
+                "start": 397,
+                "end": 413
+            }
+        },
+        "type": "task"
+    }
+]
