@@ -360,7 +360,7 @@ class GraphGenerator:
         self.last_completed_type = "task"
         self.last_completed_type_id = self.task_counter - 1
 
-    def handle_list(self, data, parent_gateway):
+    def handle_list(self, data, parent_gateway, local_index=None):
 
         for index, element in enumerate(data):
 
@@ -378,6 +378,15 @@ class GraphGenerator:
                     last=last,
                     parent_gateway=parent_gateway,
                     previous_element=previous_element,
+                )
+            elif element["type"] == "continue":
+                assert parent_gateway["type"] == "exclusive"
+                assert last is True
+                condition_label = parent_gateway["conditions"][local_index]
+                self.connect(
+                    f"{parent_gateway['id']}_S",
+                    f"{element['content']['go_to']}",
+                    label_parameter=condition_label,
                 )
             elif element["type"] == "loop":
                 assert parent_gateway["type"] == "exclusive"
@@ -452,7 +461,7 @@ class GraphGenerator:
                 previous_child = None
 
             if isinstance(child, list):
-                self.handle_list(data=child, parent_gateway=element)
+                self.handle_list(data=child, parent_gateway=element, local_index=index)
             else:
                 if child["type"] == "task":
                     self.handle_task(

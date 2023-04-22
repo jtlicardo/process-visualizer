@@ -149,7 +149,15 @@ def classify_process_info(text: str) -> dict:
     data = query(
         {
             "inputs": text,
-            "parameters": {"candidate_labels": ["start", "end", "split", "return"]},
+            "parameters": {
+                "candidate_labels": [
+                    "beginning",
+                    "end",
+                    "split",
+                    "going back",
+                    "continuation",
+                ]
+            },
             "options": {"wait_for_model": True},
         },
         ZERO_SHOT_CLASSIFICATION_ENDPOINT,
@@ -181,10 +189,11 @@ def batch_classify_process_info(process_info_entities: list[dict]) -> list[dict]
         text = entity["word"]
         data = classify_process_info(text)
         process_info_dict = {
-            "start": "PROCESS_START",
+            "beginning": "PROCESS_START",
             "end": "PROCESS_END",
             "split": "PROCESS_SPLIT",
-            "return": "PROCESS_RETURN",
+            "going back": "PROCESS_RETURN",
+            "continuation": "PROCESS_CONTINUE",
         }
         entity["entity_group"] = process_info_dict[data["labels"][0]]
         updated_entities.append(entity)
@@ -1110,6 +1119,8 @@ def process_text(text: str) -> list[dict]:
             agent_task_pairs, sents_data, process_info
         )
 
+    write_to_file("process_info_entities.json", process_info)
+
     loop_sentences = find_sentences_with_loop_keywords(sents_data)
     agent_task_pairs = add_task_ids(agent_task_pairs, sents_data, loop_sentences)
     agent_task_pairs = add_loops(agent_task_pairs, sents_data, loop_sentences)
@@ -1117,7 +1128,7 @@ def process_text(text: str) -> list[dict]:
     write_to_file("agent_task_pairs_final.json", agent_task_pairs)
 
     structure = create_bpmn_structure(
-        agent_task_pairs, parallel_gateway_data, exclusive_gateway_data
+        agent_task_pairs, parallel_gateway_data, exclusive_gateway_data, process_info
     )
 
     write_to_file("bpmn_structure.json", structure)

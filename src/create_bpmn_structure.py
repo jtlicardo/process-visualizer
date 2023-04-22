@@ -5,6 +5,7 @@ def create_bpmn_structure(
     agent_task_pairs: list[dict],
     parallel_gateway_data: list[dict],
     exclusive_gateway_data: list[dict],
+    process_info: list[dict],
 ) -> list[dict]:
     """
     Creates a BPMN structure from the agent-task pairs, parallel gateways and exclusive gateways.
@@ -13,6 +14,7 @@ def create_bpmn_structure(
         agent_task_pairs (list[dict]): A list of agent-task pairs.
         parallel_gateway_data (list[dict]): A list of parallel gateway data.
         exclusive_gateway_data (list[dict]): A list of exclusive gateway data.
+        process_info (list[dict]): A list of process info entities.
     Returns:
         list[dict]: A list of BPMN structure elements.
     """
@@ -24,7 +26,7 @@ def create_bpmn_structure(
     gateways = parallel_gateway_data + exclusive_gateway_data
     gateways = sorted(gateways, key=calculate_distance)
 
-    add_tasks_to_gateways(agent_task_pairs_to_add, gateways)
+    add_tasks_to_gateways(agent_task_pairs_to_add, gateways, process_info)
 
     write_to_file("bpmn_structure/gateways.json", gateways)
 
@@ -59,14 +61,22 @@ def format_agent_task_pairs(agent_task_pairs):
                 del pair[key]
 
 
+def gateway_contains_nested_gateways(gateway, all_gateways):
+    for g in all_gateways:
+        if g["start"] > gateway["start"] and g["end"] < gateway["end"]:
+            return True
+    return False
+
+
 def add_tasks_to_gateways(
-    agent_task_pairs_to_add: list[dict], gateways: list[dict]
+    agent_task_pairs_to_add: list[dict], gateways: list[dict], process_info: list[dict]
 ) -> None:
     """
     Adds the agent-task pairs to the corresponding gateways based on their start and end indices.
     Args:
         agent_task_pairs_to_add (list[dict]): A list of agent-task pairs to add to the gateways.
         gateways (list[dict]): A list of gateways.
+        process_info (list[dict]): A list of process info entities.
     Returns:
         None
     """
@@ -103,6 +113,44 @@ def add_tasks_to_gateways(
                         and "condition" in child["content"]
                     ):
                         del child["content"]["condition"]
+            # Handle PROCESS_CONTINUE entity in exclusive gateways
+            process_continue_entities = [
+                e
+                for e in process_info
+                if e["entity_group"] == "PROCESS_CONTINUE"
+                and e["start"] in range(gateway["start"], gateway["end"] + 1)
+            ]
+            if len(process_continue_entities) == 1:
+                handle_process_continue_entity(
+                    agent_task_pairs_to_add, gateways, gateway
+                )
+
+
+def handle_process_continue_entity(
+    agent_task_pairs_to_add: list[dict], gateways: list[dict], gateway: dict
+) -> None:
+    """
+    Handles the PROCESS_CONTINUE entity in exclusive gateways by adding a "continue" entity to the gateway.
+    The "continue" entity will point to the next task in the process (the first task after the exclusive gateway).
+    Args:
+        agent_task_pairs_to_add (list[dict]): A list of agent-task pairs to add to the gateways.
+        gateways (list[dict]): A list of gateways.
+        gateway (dict): The gateway to handle.
+    Returns:
+        None
+    """
+    assert gateway_contains_nested_gateways(gateway, gateways) == False
+    for i in range(len(gateway["children"])):
+        children_list = gateway["children"][i]
+        if len(children_list) == 0:
+            next_task_id = None
+            for pair in agent_task_pairs_to_add:
+                if pair["content"]["task"]["start"] > gateway["end"]:
+                    next_task_id = pair["content"]["task"]["task_id"]
+                    break
+            gateway["children"][i].append(
+                {"content": {"go_to": next_task_id}, "type": "continue"}
+            )
 
 
 def calculate_distance(gateway):
@@ -233,10 +281,15 @@ if __name__ == "__main__":
 
     parallel_gateway_data = []
     exclusive_gateway_data = []
+    process_info = []
 
     with open("output_logs/agent_task_pairs_final.json", "r") as file:
         agent_task_pairs = file.read()
     agent_task_pairs = json.loads(agent_task_pairs)
+
+    with (open("output_logs/process_info_entities.json", "r")) as file:
+        process_info = file.read()
+    process_info = json.loads(process_info)
 
     if exists("output_logs/parallel_gateway_data.json"):
         with open("output_logs/parallel_gateway_data.json", "r") as file:
@@ -249,6 +302,6 @@ if __name__ == "__main__":
         exclusive_gateway_data = json.loads(exclusive_gateway_data)
 
     structure = create_bpmn_structure(
-        agent_task_pairs, parallel_gateway_data, exclusive_gateway_data
+        agent_task_pairs, parallel_gateway_data, exclusive_gateway_data, process_info
     )
     write_to_file("bpmn_structure/bpmn_structure.json", structure)
