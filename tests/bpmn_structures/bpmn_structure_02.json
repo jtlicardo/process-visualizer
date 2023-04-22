@@ -1,0 +1,150 @@
+[
+    {
+        "content": {
+            "agent": {
+                "entity_group": "AGENT",
+                "score": 0.9948257803916931,
+                "word": "The customer",
+                "start": 0,
+                "end": 12
+            },
+            "task": {
+                "entity_group": "TASK",
+                "score": 0.984044075012207,
+                "word": "decides if the customer wants to finance or pay in cash",
+                "start": 13,
+                "end": 68,
+                "task_id": "T0"
+            },
+            "sentence_idx": 0
+        },
+        "type": "task"
+    },
+    {
+        "id": "EG0",
+        "conditions": [
+            "If the customer chooses to finance",
+            "If the customer chooses to pay in cash"
+        ],
+        "start": 70,
+        "end": 382,
+        "paths": [
+            {
+                "start": 70,
+                "end": 237
+            },
+            {
+                "start": 238,
+                "end": 382
+            }
+        ],
+        "type": "exclusive",
+        "children": [
+            [
+                {
+                    "id": "PG0",
+                    "start": 70,
+                    "end": 238,
+                    "paths": [
+                        {
+                            "start": 146,
+                            "end": 192
+                        },
+                        {
+                            "start": 196,
+                            "end": 237
+                        }
+                    ],
+                    "type": "parallel",
+                    "children": [
+                        [
+                            {
+                                "content": {
+                                    "agent": {
+                                        "entity_group": "AGENT",
+                                        "score": 0.9933059215545654,
+                                        "word": "the customer",
+                                        "start": 146,
+                                        "end": 158
+                                    },
+                                    "task": {
+                                        "entity_group": "TASK",
+                                        "score": 0.9945270419120789,
+                                        "word": "fill out a loan application",
+                                        "start": 164,
+                                        "end": 191,
+                                        "task_id": "T1"
+                                    },
+                                    "sentence_idx": 1
+                                },
+                                "type": "task"
+                            }
+                        ],
+                        [
+                            {
+                                "content": {
+                                    "agent": {
+                                        "entity_group": "AGENT",
+                                        "score": 0.9901844263076782,
+                                        "word": "the manager",
+                                        "start": 196,
+                                        "end": 207
+                                    },
+                                    "task": {
+                                        "entity_group": "TASK",
+                                        "score": 0.9951585531234741,
+                                        "word": "check the customer info",
+                                        "start": 213,
+                                        "end": 236,
+                                        "task_id": "T2"
+                                    },
+                                    "sentence_idx": 1
+                                },
+                                "type": "task"
+                            }
+                        ]
+                    ],
+                    "condition": {
+                        "entity_group": "CONDITION",
+                        "score": 0.9926639199256897,
+                        "word": "If the customer chooses to finance",
+                        "start": 70,
+                        "end": 104,
+                        "condition_id": "C1"
+                    }
+                }
+            ],
+            [
+                {
+                    "content": {
+                        "agent": {
+                            "entity_group": "AGENT",
+                            "score": 0.9955129027366638,
+                            "word": "the customer",
+                            "start": 278,
+                            "end": 290
+                        },
+                        "task": {
+                            "entity_group": "TASK",
+                            "score": 0.9932123422622681,
+                            "word": "bring the total amount",
+                            "start": 304,
+                            "end": 326,
+                            "task_id": "T3"
+                        },
+                        "sentence_idx": 2,
+                        "condition": {
+                            "entity_group": "CONDITION",
+                            "score": 0.9931575655937195,
+                            "word": "If the customer chooses to pay in cash",
+                            "start": 238,
+                            "end": 276,
+                            "condition_id": "C2"
+                        }
+                    },
+                    "type": "task"
+                }
+            ]
+        ]
+    }
+]

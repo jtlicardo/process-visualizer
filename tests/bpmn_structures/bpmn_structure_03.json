@@ -1,0 +1,143 @@
+[
+    {
+        "content": {
+            "agent": {
+                "entity_group": "AGENT",
+                "score": 0.9948328733444214,
+                "word": "The company",
+                "start": 0,
+                "end": 11
+            },
+            "task": {
+                "entity_group": "TASK",
+                "score": 0.9952452182769775,
+                "word": "receives the order",
+                "start": 12,
+                "end": 30,
+                "task_id": "T0"
+            },
+            "sentence_idx": 0
+        },
+        "type": "task"
+    },
+    {
+        "id": "EG0",
+        "conditions": [
+            "If the product is out of stock",
+            "If the product is in stock and the payment succeeds",
+            "If the product is in stock, but the payment fails"
+        ],
+        "start": 50,
+        "end": 374,
+        "paths": [
+            {
+                "start": 50,
+                "end": 154
+            },
+            {
+                "start": 155,
+                "end": 250
+            },
+            {
+                "start": 251,
+                "end": 374
+            }
+        ],
+        "type": "exclusive",
+        "children": [
+            [
+                {
+                    "content": {
+                        "agent": {
+                            "entity_group": "AGENT",
+                            "score": 0.9963350296020508,
+                            "word": "the customer",
+                            "start": 82,
+                            "end": 94
+                        },
+                        "task": {
+                            "entity_group": "TASK",
+                            "score": 0.9942922592163086,
+                            "word": "receives a notification",
+                            "start": 95,
+                            "end": 118,
+                            "task_id": "T1"
+                        },
+                        "sentence_idx": 1,
+                        "condition": {
+                            "entity_group": "CONDITION",
+                            "score": 0.9918044209480286,
+                            "word": "If the product is out of stock",
+                            "start": 50,
+                            "end": 80,
+                            "condition_id": "C0"
+                        }
+                    },
+                    "type": "task"
+                }
+            ],
+            [
+                {
+                    "content": {
+                        "agent": {
+                            "entity_group": "AGENT",
+                            "score": 0.9956557750701904,
+                            "word": "the company",
+                            "start": 208,
+                            "end": 219
+                        },
+                        "task": {
+                            "entity_group": "TASK",
+                            "score": 0.9162603616714478,
+                            "word": "processes and ships the order",
+                            "start": 220,
+                            "end": 249,
+                            "task_id": "T2"
+                        },
+                        "sentence_idx": 2,
+                        "condition": {
+                            "entity_group": "CONDITION",
+                            "score": 0.9921108484268188,
+                            "word": "If the product is in stock and the payment succeeds",
+                            "start": 155,
+                            "end": 206,
+                            "condition_id": "C1"
+                        }
+                    },
+                    "type": "task"
+                }
+            ],
+            [
+                {
+                    "content": {
+                        "agent": {
+                            "entity_group": "AGENT",
+                            "score": 0.9963288307189941,
+                            "word": "the customer",
+                            "start": 302,
+                            "end": 314
+                        },
+                        "task": {
+                            "entity_group": "TASK",
+                            "score": 0.9939106702804565,
+                            "word": "receives a notification",
+                            "start": 315,
+                            "end": 338,
+                            "task_id": "T3"
+                        },
+                        "sentence_idx": 3,
+                        "condition": {
+                            "entity_group": "CONDITION",
+                            "score": 0.9892467856407166,
+                            "word": "If the product is in stock, but the payment fails",
+                            "start": 251,
+                            "end": 300,
+                            "condition_id": "C2"
+                        }
+                    },
+                    "type": "task"
+                }
+            ]
+        ]
+    }
+]

@@ -1,0 +1,171 @@
+[
+    {
+        "id": "PG0",
+        "start": 42,
+        "end": 318,
+        "paths": [
+            {
+                "start": 66,
+                "end": 110
+            },
+            {
+                "start": 135,
+                "end": 318
+            }
+        ],
+        "type": "parallel",
+        "children": [
+            [
+                {
+                    "content": {
+                        "agent": {
+                            "entity_group": "AGENT",
+                            "score": 0.949377179145813,
+                            "word": "the customer",
+                            "start": 66,
+                            "end": 78
+                        },
+                        "task": {
+                            "entity_group": "TASK",
+                            "score": 0.9903668165206909,
+                            "word": "filling out a loan application",
+                            "start": 79,
+                            "end": 109,
+                            "task_id": "T0"
+                        },
+                        "sentence_idx": 1
+                    },
+                    "type": "task"
+                }
+            ],
+            [
+                {
+                    "content": {
+                        "agent": {
+                            "entity_group": "AGENT",
+                            "score": 0.9952772855758667,
+                            "word": "the manager",
+                            "start": 135,
+                            "end": 146
+                        },
+                        "task": {
+                            "entity_group": "TASK",
+                            "score": 0.9923179149627686,
+                            "word": "decides whether to prepare additional questions",
+                            "start": 147,
+                            "end": 194,
+                            "task_id": "T1"
+                        },
+                        "sentence_idx": 2
+                    },
+                    "type": "task"
+                },
+                {
+                    "id": "EG0",
+                    "conditions": [
+                        "If yes",
+                        "If the decision is not to prepare"
+                    ],
+                    "start": 196,
+                    "end": 318,
+                    "paths": [
+                        {
+                            "start": 196,
+                            "end": 246
+                        },
+                        {
+                            "start": 247,
+                            "end": 318
+                        }
+                    ],
+                    "type": "exclusive",
+                    "children": [
+                        [
+                            {
+                                "content": {
+                                    "agent": {
+                                        "entity_group": "AGENT",
+                                        "score": 0.9958127737045288,
+                                        "word": "the manager",
+                                        "start": 204,
+                                        "end": 215
+                                    },
+                                    "task": {
+                                        "entity_group": "TASK",
+                                        "score": 0.9951485991477966,
+                                        "word": "prepares additional questions",
+                                        "start": 216,
+                                        "end": 245,
+                                        "task_id": "T2"
+                                    },
+                                    "sentence_idx": 3,
+                                    "condition": {
+                                        "entity_group": "CONDITION",
+                                        "score": 0.9851137399673462,
+                                        "word": "If yes",
+                                        "start": 196,
+                                        "end": 202,
+                                        "condition_id": "C0"
+                                    }
+                                },
+                                "type": "task"
+                            }
+                        ],
+                        [
+                            {
+                                "content": {
+                                    "agent": {
+                                        "entity_group": "AGENT",
+                                        "score": 0.9964438676834106,
+                                        "word": "the manager",
+                                        "start": 282,
+                                        "end": 293
+                                    },
+                                    "task": {
+                                        "entity_group": "TASK",
+                                        "score": 0.9921287298202515,
+                                        "word": "waits for the customer",
+                                        "start": 294,
+                                        "end": 316,
+                                        "task_id": "T3"
+                                    },
+                                    "sentence_idx": 4,
+                                    "condition": {
+                                        "entity_group": "CONDITION",
+                                        "score": 0.9929479360580444,
+                                        "word": "If the decision is not to prepare",
+                                        "start": 247,
+                                        "end": 280,
+                                        "condition_id": "C1"
+                                    }
+                                },
+                                "type": "task"
+                            }
+                        ]
+                    ]
+                }
+            ]
+        ]
+    },
+    {
+        "content": {
+            "agent": {
+                "entity_group": "AGENT",
+                "score": 0.9961694478988647,
+                "word": "the customer",
+                "start": 341,
+                "end": 353
+            },
+            "task": {
+                "entity_group": "TASK",
+                "score": 0.9955706000328064,
+                "word": "sends the application",
+                "start": 354,
+                "end": 375,
+                "task_id": "T4"
+            },
+            "sentence_idx": 5
+        },
+        "type": "task"
+    }
+]

@@ -1,0 +1,218 @@
+[
+    {
+        "content": {
+            "agent": {
+                "entity_group": "AGENT",
+                "score": 0.9962427020072937,
+                "word": "the student",
+                "start": 24,
+                "end": 35
+            },
+            "task": {
+                "entity_group": "TASK",
+                "score": 0.9958250522613525,
+                "word": "choosing his preferences",
+                "start": 36,
+                "end": 60,
+                "task_id": "T0"
+            },
+            "sentence_idx": 0
+        },
+        "type": "task"
+    },
+    {
+        "content": {
+            "agent": {
+                "entity_group": "AGENT",
+                "score": 0.9945727586746216,
+                "word": "the Airtable service",
+                "start": 68,
+                "end": 88
+            },
+            "task": {
+                "entity_group": "TASK",
+                "score": 0.9964941143989563,
+                "word": "saves the preferences",
+                "start": 89,
+                "end": 110,
+                "task_id": "T1"
+            },
+            "sentence_idx": 1
+        },
+        "type": "task"
+    },
+    {
+        "content": {
+            "agent": {
+                "entity_group": "AGENT",
+                "score": 0.996487021446228,
+                "word": "the professor",
+                "start": 133,
+                "end": 146
+            },
+            "task": {
+                "entity_group": "TASK",
+                "score": 0.9939991235733032,
+                "word": "allocates the student",
+                "start": 147,
+                "end": 168,
+                "task_id": "T2"
+            },
+            "sentence_idx": 2
+        },
+        "type": "task"
+    },
+    {
+        "content": {
+            "agent": {
+                "entity_group": "AGENT",
+                "score": 0.996487021446228,
+                "word": "the professor",
+                "start": 133,
+                "end": 146
+            },
+            "task": {
+                "entity_group": "TASK",
+                "score": 0.9958552718162537,
+                "word": "confirms the allocation",
+                "start": 173,
+                "end": 196,
+                "task_id": "T3"
+            },
+            "sentence_idx": 2
+        },
+        "type": "task"
+    },
+    {
+        "content": {
+            "agent": {
+                "entity_group": "AGENT",
+                "score": 0.9953722953796387,
+                "word": "the professor",
+                "start": 209,
+                "end": 222
+            },
+            "task": {
+                "entity_group": "TASK",
+                "score": 0.9963000416755676,
+                "word": "notifies the student",
+                "start": 223,
+                "end": 243,
+                "task_id": "T4"
+            },
+            "sentence_idx": 3
+        },
+        "type": "task"
+    },
+    {
+        "content": {
+            "agent": {
+                "entity_group": "AGENT",
+                "score": 0.9959865808486938,
+                "word": "The employer",
+                "start": 245,
+                "end": 257
+            },
+            "task": {
+                "entity_group": "TASK",
+                "score": 0.9969170689582825,
+                "word": "evaluates the candidate",
+                "start": 258,
+                "end": 281,
+                "task_id": "T5"
+            },
+            "sentence_idx": 4
+        },
+        "type": "task"
+    },
+    {
+        "content": {
+            "agent": {
+                "entity_group": "AGENT",
+                "score": 0.9959865808486938,
+                "word": "The employer",
+                "start": 245,
+                "end": 257
+            },
+            "task": {
+                "entity_group": "TASK",
+                "score": 0.9965536594390869,
+                "word": "confirms the evaluation",
+                "start": 286,
+                "end": 309,
+                "task_id": "T6"
+            },
+            "sentence_idx": 4
+        },
+        "type": "task"
+    },
+    {
+        "id": "EG0",
+        "conditions": [
+            "If the student is accepted"
+        ],
+        "start": 311,
+        "end": 417,
+        "paths": [
+            {
+                "start": 311,
+                "end": 417
+            }
+        ],
+        "type": "exclusive",
+        "children": [
+            [
+                {
+                    "content": {
+                        "agent": {
+                            "entity_group": "AGENT",
+                            "score": 0.9964269399642944,
+                            "word": "the professor",
+                            "start": 339,
+                            "end": 352
+                        },
+                        "task": {
+                            "entity_group": "TASK",
+                            "score": 0.9962033629417419,
+                            "word": "notifies the student",
+                            "start": 353,
+                            "end": 373,
+                            "task_id": "T7"
+                        },
+                        "sentence_idx": 5,
+                        "condition": {
+                            "entity_group": "CONDITION",
+                            "score": 0.9929136037826538,
+                            "word": "If the student is accepted",
+                            "start": 311,
+                            "end": 337,
+                            "condition_id": "C0"
+                        }
+                    },
+                    "type": "task"
+                },
+                {
+                    "content": {
+                        "agent": {
+                            "entity_group": "AGENT",
+                            "score": 0.9962279200553894,
+                            "word": "the student",
+                            "start": 380,
+                            "end": 391
+                        },
+                        "task": {
+                            "entity_group": "TASK",
+                            "score": 0.9948796629905701,
+                            "word": "completes his internship",
+                            "start": 392,
+                            "end": 416,
+                            "task_id": "T8"
+                        },
+                        "sentence_idx": 6
+                    },
+                    "type": "task"
+                }
+            ]
+        ]
+    }
+]

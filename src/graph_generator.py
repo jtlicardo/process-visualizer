@@ -7,16 +7,16 @@ from logging_utils import write_to_file
 
 
 class GraphGenerator:
-    def __init__(self, data, format=None, notebook=False):
+    def __init__(self, data, format=None, notebook=False, test_mode=False):
 
         self.bpmn = graphviz.Digraph("bpmn_diagram", filename="bpmn.gv")
 
         if format == "jpeg":
             self.bpmn.format = "jpeg"
 
-        self.notebook = notebook
-
         self.data = data
+        self.notebook = notebook
+        self.test_mode = test_mode
 
         self.last_completed_type = ""
         self.last_completed_type_id = 0  # i.e. counter
@@ -423,7 +423,6 @@ class GraphGenerator:
         if type == "exclusive":
             num = self.count_conditions_in_gateway(element)
             if num == 1:
-                element["children"] = [element["children"]]
                 element["single_condition"] = True
             if self.check_for_end_events_in_gateway(element):
                 element["has_end_events"] = True
@@ -531,7 +530,8 @@ class GraphGenerator:
 
     def generate_graph(self):
 
-        self.remove_old_files()
+        if not self.test_mode:
+            self.remove_old_files()
 
         if isinstance(self.data, dict):
             self.data = [self.data]

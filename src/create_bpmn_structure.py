@@ -2,8 +2,20 @@ from logging_utils import write_to_file
 
 
 def create_bpmn_structure(
-    agent_task_pairs, parallel_gateway_data, exclusive_gateway_data
-):
+    agent_task_pairs: list[dict],
+    parallel_gateway_data: list[dict],
+    exclusive_gateway_data: list[dict],
+) -> list[dict]:
+    """
+    Creates a BPMN structure from the agent-task pairs, parallel gateways and exclusive gateways.
+    The BPMN structure can be used to create a visual representation of the BPMN diagram.
+    Args:
+        agent_task_pairs (list[dict]): A list of agent-task pairs.
+        parallel_gateway_data (list[dict]): A list of parallel gateway data.
+        exclusive_gateway_data (list[dict]): A list of exclusive gateway data.
+    Returns:
+        list[dict]: A list of BPMN structure elements.
+    """
 
     format_agent_task_pairs(agent_task_pairs)
 
@@ -47,7 +59,17 @@ def format_agent_task_pairs(agent_task_pairs):
                 del pair[key]
 
 
-def add_tasks_to_gateways(agent_task_pairs_to_add, gateways):
+def add_tasks_to_gateways(
+    agent_task_pairs_to_add: list[dict], gateways: list[dict]
+) -> None:
+    """
+    Adds the agent-task pairs to the corresponding gateways based on their start and end indices.
+    Args:
+        agent_task_pairs_to_add (list[dict]): A list of agent-task pairs to add to the gateways.
+        gateways (list[dict]): A list of gateways.
+    Returns:
+        None
+    """
 
     for gateway in gateways:
         gateway["type"] = "parallel" if gateway["id"].startswith("PG") else "exclusive"
@@ -87,8 +109,27 @@ def calculate_distance(gateway):
     return gateway["end"] - gateway["start"]
 
 
-def nest_gateways(all_gateways):
-    def is_nested(inner, outer):
+def nest_gateways(all_gateways: list[dict]) -> list[dict]:
+    """
+    Nests gateways according to their start and end indices.
+    Args:
+        all_gateways (list[dict]): A list of gateways.
+    Returns:
+        list[dict]: A list of nested gateways.
+    """
+
+    def is_nested(inner: dict, outer: dict) -> bool:
+        """
+        Checks if the inner gateway is nested within the outer gateway.
+        If the inner gateway is not nested within the outer gateway, but the start and end indices of the inner gateway
+        overlap significantly with the start and end indices of the outer gateway, the inner gateway is also considered
+        nested within the outer gateway.
+        Args:
+            inner (dict): The inner gateway.
+            outer (dict): The outer gateway.
+        Returns:
+            bool: True if the inner gateway is nested within the outer gateway, False otherwise.
+        """
         if (
             inner["start"] >= outer["start"]
             and inner["end"] <= outer["end"]
@@ -100,12 +141,19 @@ def nest_gateways(all_gateways):
             range_2 = (outer["start"], outer["end"])
             return ranges_overlap_percentage(range_1, range_2)
 
-    def find_parent_and_path(gateway):
+    def find_parent_and_path(gateway: dict) -> tuple[dict, dict]:
+        """
+        Finds the parent gateway and the path of the parent gateway that contains the given gateway.
+        Args:
+            gateway (dict): The gateway to find the parent gateway for.
+        Returns:
+            tuple[dict, dict]: The parent gateway and the path of the parent gateway that contains the given gateway.
+        """
         parent = None
         parent_path = None
         for candidate in all_gateways:
             for path in candidate["paths"]:
-                if is_nested(gateway, path):
+                if candidate["id"] != gateway["id"] and is_nested(gateway, path):
                     if parent is None or is_nested(path, parent_path):
                         parent = candidate
                         parent_path = path
@@ -143,7 +191,19 @@ def nest_gateways(all_gateways):
     return top_level_gateways
 
 
-def ranges_overlap_percentage(range1, range2, min_overlap_percentage=0.97):
+def ranges_overlap_percentage(
+    range1: tuple[int, int], range2: tuple[int, int], min_overlap_percentage=0.97
+) -> bool:
+    """
+    Determines if two ranges overlap by a certain percentage. Each range is a tuple of the form (start, end).
+    Args:
+        range1 (tuple): The first range.
+        range2 (tuple): The second range.
+        min_overlap_percentage (float): The minimum percentage of overlap required for the ranges to be considered overlapping.
+    Returns:
+        bool: True if the ranges overlap by the minimum percentage, False otherwise.
+    """
+
     start1, end1 = range1
     start2, end2 = range2
 

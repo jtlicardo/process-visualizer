@@ -1,0 +1,237 @@
+[
+    {
+        "content": {
+            "agent": {
+                "entity_group": "AGENT",
+                "score": 0.994061291217804,
+                "word": "the project manager",
+                "start": 24,
+                "end": 43
+            },
+            "task": {
+                "entity_group": "TASK",
+                "score": 0.9963052868843079,
+                "word": "defines the requirements",
+                "start": 44,
+                "end": 68,
+                "task_id": "T0"
+            },
+            "sentence_idx": 0
+        },
+        "type": "task"
+    },
+    {
+        "id": "PG0",
+        "start": 136,
+        "end": 573,
+        "paths": [
+            {
+                "start": 154,
+                "end": 458
+            },
+            {
+                "start": 486,
+                "end": 572
+            }
+        ],
+        "type": "parallel",
+        "children": [
+            [
+                {
+                    "content": {
+                        "agent": {
+                            "entity_group": "AGENT",
+                            "score": 0.9927309155464172,
+                            "word": "the front - end development team",
+                            "start": 154,
+                            "end": 184
+                        },
+                        "task": {
+                            "entity_group": "TASK",
+                            "score": 0.9953105449676514,
+                            "word": "designs the user interface",
+                            "start": 185,
+                            "end": 211,
+                            "task_id": "T1"
+                        },
+                        "sentence_idx": 1
+                    },
+                    "type": "task"
+                },
+                {
+                    "id": "EG0",
+                    "conditions": [
+                        "If the design is approved",
+                        "If not"
+                    ],
+                    "start": 213,
+                    "end": 458,
+                    "paths": [
+                        {
+                            "start": 213,
+                            "end": 293
+                        },
+                        {
+                            "start": 294,
+                            "end": 458
+                        }
+                    ],
+                    "type": "exclusive",
+                    "children": [
+                        [
+                            {
+                                "content": {
+                                    "agent": {
+                                        "entity_group": "AGENT",
+                                        "score": 0.9923080801963806,
+                                        "word": "the front - end development team",
+                                        "start": 240,
+                                        "end": 270
+                                    },
+                                    "task": {
+                                        "entity_group": "TASK",
+                                        "score": 0.99659663438797,
+                                        "word": "implements the design",
+                                        "start": 271,
+                                        "end": 292,
+                                        "task_id": "T2"
+                                    },
+                                    "sentence_idx": 2,
+                                    "condition": {
+                                        "entity_group": "CONDITION",
+                                        "score": 0.9925464391708374,
+                                        "word": "If the design is approved",
+                                        "start": 213,
+                                        "end": 238,
+                                        "condition_id": "C0"
+                                    }
+                                },
+                                "type": "task"
+                            }
+                        ],
+                        [
+                            {
+                                "id": "PG1",
+                                "start": 302,
+                                "end": 458,
+                                "paths": [
+                                    {
+                                        "start": 302,
+                                        "end": 380
+                                    },
+                                    {
+                                        "start": 384,
+                                        "end": 458
+                                    }
+                                ],
+                                "parallel_parent": "PG0",
+                                "parallel_parent_path": 0,
+                                "type": "parallel",
+                                "children": [
+                                    [
+                                        {
+                                            "content": {
+                                                "agent": {
+                                                    "entity_group": "AGENT",
+                                                    "score": 0.9905112385749817,
+                                                    "word": "the front - end development team",
+                                                    "start": 302,
+                                                    "end": 332
+                                                },
+                                                "task": {
+                                                    "entity_group": "TASK",
+                                                    "score": 0.974810004234314,
+                                                    "word": "revises the design",
+                                                    "start": 333,
+                                                    "end": 351,
+                                                    "task_id": "T3"
+                                                },
+                                                "sentence_idx": 3
+                                            },
+                                            "type": "task"
+                                        }
+                                    ],
+                                    [
+                                        {
+                                            "content": {
+                                                "agent": {
+                                                    "entity_group": "AGENT",
+                                                    "score": 0.9905112385749817,
+                                                    "word": "the front - end development team",
+                                                    "start": 302,
+                                                    "end": 332
+                                                },
+                                                "task": {
+                                                    "entity_group": "TASK",
+                                                    "score": 0.9553149342536926,
+                                                    "word": "implement the approven parts",
+                                                    "start": 397,
+                                                    "end": 425,
+                                                    "task_id": "T4"
+                                                },
+                                                "sentence_idx": 3
+                                            },
+                                            "type": "task"
+                                        }
+                                    ]
+                                ],
+                                "condition": {
+                                    "entity_group": "CONDITION",
+                                    "score": 0.9765383005142212,
+                                    "word": "If not",
+                                    "start": 294,
+                                    "end": 300,
+                                    "condition_id": "C2"
+                                }
+                            }
+                        ]
+                    ]
+                }
+            ],
+            [
+                {
+                    "content": {
+                        "agent": {
+                            "entity_group": "AGENT",
+                            "score": 0.9880578517913818,
+                            "word": "the front - end development team",
+                            "start": 486,
+                            "end": 516
+                        },
+                        "task": {
+                            "entity_group": "TASK",
+                            "score": 0.9963933825492859,
+                            "word": "builds the server - side functionality",
+                            "start": 517,
+                            "end": 553,
+                            "task_id": "T5"
+                        },
+                        "sentence_idx": 4
+                    },
+                    "type": "task"
+                }
+            ]
+        ]
+    },
+    {
+        "content": {
+            "agent": {
+                "entity_group": "AGENT",
+                "score": 0.9895044565200806,
+                "word": "the QA team",
+                "start": 604,
+                "end": 615
+            },
+            "task": {
+                "entity_group": "TASK",
+                "score": 0.9929690361022949,
+                "word": "test the mobile app performance",
+                "start": 616,
+                "end": 647,
+                "task_id": "T6"
+            },
+            "sentence_idx": 5
+        },
+        "type": "task"
+    }
+]
