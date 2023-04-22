@@ -1,0 +1,221 @@
+[
+    {
+        "content": {
+            "agent": {
+                "entity_group": "AGENT",
+                "score": 0.994025707244873,
+                "word": "The company",
+                "start": 0,
+                "end": 11
+            },
+            "task": {
+                "entity_group": "TASK",
+                "score": 0.9945568442344666,
+                "word": "decides whether to develop a new product",
+                "start": 12,
+                "end": 52,
+                "task_id": "T0"
+            },
+            "sentence_idx": 0
+        },
+        "type": "task"
+    },
+    {
+        "id": "EG0",
+        "conditions": [
+            "If the company chooses to create a new product",
+            "If the company chooses to modify an existing product"
+        ],
+        "start": 54,
+        "end": 424,
+        "paths": [
+            {
+                "start": 54,
+                "end": 296
+            },
+            {
+                "start": 297,
+                "end": 424
+            }
+        ],
+        "type": "exclusive",
+        "children": [
+            [
+                {
+                    "content": {
+                        "agent": {
+                            "entity_group": "AGENT",
+                            "score": 0.9947282671928406,
+                            "word": "the company",
+                            "start": 102,
+                            "end": 113
+                        },
+                        "task": {
+                            "entity_group": "TASK",
+                            "score": 0.9960579872131348,
+                            "word": "designs the product",
+                            "start": 114,
+                            "end": 133,
+                            "task_id": "T1"
+                        },
+                        "sentence_idx": 1,
+                        "condition": {
+                            "entity_group": "CONDITION",
+                            "score": 0.9932473301887512,
+                            "word": "If the company chooses to create a new product",
+                            "start": 54,
+                            "end": 100,
+                            "condition_id": "C0"
+                        }
+                    },
+                    "type": "task"
+                },
+                {
+                    "id": "EG1",
+                    "conditions": [
+                        "If the company is satisfied with the design",
+                        "If not"
+                    ],
+                    "start": 135,
+                    "end": 278,
+                    "paths": [
+                        {
+                            "start": 135,
+                            "end": 234
+                        },
+                        {
+                            "start": 235,
+                            "end": 295
+                        }
+                    ],
+                    "parent_gateway_id": "EG0",
+                    "parent_gateway_path_id": 0,
+                    "type": "exclusive",
+                    "children": [
+                        [
+                            {
+                                "content": {
+                                    "agent": {
+                                        "entity_group": "AGENT",
+                                        "score": 0.9926928281784058,
+                                        "word": "the company",
+                                        "start": 180,
+                                        "end": 191
+                                    },
+                                    "task": {
+                                        "entity_group": "TASK",
+                                        "score": 0.9964454770088196,
+                                        "word": "launches the product",
+                                        "start": 192,
+                                        "end": 212,
+                                        "task_id": "T2"
+                                    },
+                                    "sentence_idx": 2,
+                                    "condition": {
+                                        "entity_group": "CONDITION",
+                                        "score": 0.9943674802780151,
+                                        "word": "If the company is satisfied with the design",
+                                        "start": 135,
+                                        "end": 178,
+                                        "condition_id": "C1"
+                                    },
+                                    "process_end_event": {
+                                        "entity_group": "PROCESS_END",
+                                        "score": 0.9852924942970276,
+                                        "word": "the process ends",
+                                        "start": 217,
+                                        "end": 233
+                                    }
+                                },
+                                "type": "task"
+                            }
+                        ],
+                        [
+                            {
+                                "content": {
+                                    "agent": {
+                                        "entity_group": "AGENT",
+                                        "score": 0.9948723316192627,
+                                        "word": "the company",
+                                        "start": 243,
+                                        "end": 254
+                                    },
+                                    "task": {
+                                        "entity_group": "TASK",
+                                        "score": 0.9900884628295898,
+                                        "word": "redesigns the product",
+                                        "start": 255,
+                                        "end": 276,
+                                        "task_id": "T3"
+                                    },
+                                    "sentence_idx": 3,
+                                    "condition": {
+                                        "entity_group": "CONDITION",
+                                        "score": 0.9785631895065308,
+                                        "word": "If not",
+                                        "start": 235,
+                                        "end": 241,
+                                        "condition_id": "C2"
+                                    }
+                                },
+                                "type": "task"
+                            }
+                        ]
+                    ]
+                }
+            ],
+            [
+                {
+                    "content": {
+                        "agent": {
+                            "entity_group": "AGENT",
+                            "score": 0.994852602481842,
+                            "word": "the company",
+                            "start": 351,
+                            "end": 362
+                        },
+                        "task": {
+                            "entity_group": "TASK",
+                            "score": 0.9954760074615479,
+                            "word": "chooses a product",
+                            "start": 363,
+                            "end": 380,
+                            "task_id": "T4"
+                        },
+                        "sentence_idx": 4,
+                        "condition": {
+                            "entity_group": "CONDITION",
+                            "score": 0.9910527467727661,
+                            "word": "if the company chooses to modify an existing product",
+                            "start": 297,
+                            "end": 349,
+                            "condition_id": "C4"
+                        }
+                    },
+                    "type": "task"
+                },
+                {
+                    "content": {
+                        "agent": {
+                            "entity_group": "AGENT",
+                            "score": 0.994852602481842,
+                            "word": "the company",
+                            "start": 351,
+                            "end": 362
+                        },
+                        "task": {
+                            "entity_group": "TASK",
+                            "score": 0.965904712677002,
+                            "word": "redesigns the product",
+                            "start": 402,
+                            "end": 423,
+                            "task_id": "T5"
+                        },
+                        "sentence_idx": 4
+                    },
+                    "type": "task"
+                }
+            ]
+        ]
+    }
+]
