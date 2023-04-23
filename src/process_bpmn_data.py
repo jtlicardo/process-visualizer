@@ -1091,7 +1091,7 @@ def process_text(text: str) -> list[dict]:
 
     data = fix_bpmn_data(data)
 
-    agents, tasks, conditions, process_info = extract_all_entities(data, 0.5)
+    agents, tasks, conditions, process_info = extract_all_entities(data, 0.6)
     parallel_gateway_data = []
     exclusive_gateway_data = []
 
