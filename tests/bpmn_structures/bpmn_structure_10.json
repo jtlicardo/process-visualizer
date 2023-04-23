@@ -1,0 +1,136 @@
+[
+    {
+        "content": {
+            "agent": {
+                "entity_group": "AGENT",
+                "score": 0.9967557191848755,
+                "word": "the manager",
+                "start": 14,
+                "end": 25
+            },
+            "task": {
+                "entity_group": "TASK",
+                "score": 0.9959759712219238,
+                "word": "checks the open leads",
+                "start": 26,
+                "end": 47,
+                "task_id": "T0"
+            },
+            "sentence_idx": 0
+        },
+        "type": "task"
+    },
+    {
+        "content": {
+            "agent": {
+                "entity_group": "AGENT",
+                "score": 0.9966782331466675,
+                "word": "the manager",
+                "start": 49,
+                "end": 60
+            },
+            "task": {
+                "entity_group": "TASK",
+                "score": 0.9951809048652649,
+                "word": "selects the top five leads",
+                "start": 66,
+                "end": 92,
+                "task_id": "T1"
+            },
+            "sentence_idx": 1
+        },
+        "type": "task"
+    },
+    {
+        "content": {
+            "agent": {
+                "entity_group": "AGENT",
+                "score": 0.9962237477302551,
+                "word": "the sales assistant",
+                "start": 106,
+                "end": 125
+            },
+            "task": {
+                "entity_group": "TASK",
+                "score": 0.9945333003997803,
+                "word": "calls the contact person",
+                "start": 126,
+                "end": 150,
+                "task_id": "T2"
+            },
+            "sentence_idx": 2
+        },
+        "type": "task"
+    },
+    {
+        "id": "EG0",
+        "conditions": [
+            "If there are any leads left",
+            "If there are no leads lefts"
+        ],
+        "start": 164,
+        "end": 318,
+        "paths": [
+            {
+                "start": 164,
+                "end": 256
+            },
+            {
+                "start": 257,
+                "end": 318
+            }
+        ],
+        "type": "exclusive",
+        "children": [
+            [
+                {
+                    "content": {
+                        "sentence_idx": 3,
+                        "condition": {
+                            "entity_group": "CONDITION",
+                            "score": 0.9919531941413879,
+                            "word": "If there are any leads left",
+                            "start": 164,
+                            "end": 191,
+                            "condition_id": "C0"
+                        },
+                        "go_to": "T2",
+                        "start": 213
+                    },
+                    "type": "loop"
+                }
+            ],
+            [
+                {
+                    "content": {
+                        "agent": {
+                            "entity_group": "AGENT",
+                            "score": 0.9963651299476624,
+                            "word": "the manager",
+                            "start": 286,
+                            "end": 297
+                        },
+                        "task": {
+                            "entity_group": "TASK",
+                            "score": 0.9943132996559143,
+                            "word": "processes the leads",
+                            "start": 298,
+                            "end": 317,
+                            "task_id": "T3"
+                        },
+                        "sentence_idx": 4,
+                        "condition": {
+                            "entity_group": "CONDITION",
+                            "score": 0.9916508793830872,
+                            "word": "If there are no leads lefts",
+                            "start": 257,
+                            "end": 284,
+                            "condition_id": "C1"
+                        }
+                    },
+                    "type": "task"
+                }
+            ]
+        ]
+    }
+]
