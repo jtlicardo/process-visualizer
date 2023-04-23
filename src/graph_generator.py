@@ -40,11 +40,11 @@ class GraphGenerator:
         self.tracker[first_node]["after"].append(second_node)
         self.tracker[second_node]["before"].append(first_node)
 
-    def connect(self, first_node, second_node, label_parameter=None):
+    def connect(self, first_node, second_node, label_parameter=None, **kwargs):
         if label_parameter is not None:
-            self.bpmn.edge(first_node, second_node, label=label_parameter)
+            self.bpmn.edge(first_node, second_node, label=label_parameter, **kwargs)
         else:
-            self.bpmn.edge(first_node, second_node)
+            self.bpmn.edge(first_node, second_node, **kwargs)
         self.log_data(first_node, second_node)
 
     def create_start_and_end_events(self):
@@ -391,6 +391,7 @@ class GraphGenerator:
             elif element["type"] == "loop":
                 assert parent_gateway["type"] == "exclusive"
                 assert last is True
+                self.bpmn.attr("edge", splines="polyline", weight="2")
                 if previous_element is not None:
                     if previous_element["type"] == "task":
                         self.connect(
@@ -405,6 +406,7 @@ class GraphGenerator:
                         f"{parent_gateway['id']}_S",
                         element["content"]["go_to"],
                         label_parameter=element["content"]["condition"]["word"],
+                        weight="0"
                     )
             elif element["type"] == "exclusive":
                 self.handle_gateway(
