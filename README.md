@@ -12,6 +12,7 @@ The app supports the following BPMN elements:
 ## How to run
 
 1. Clone the repo
+1. Download and install [Graphviz](https://graphviz.org/download/), add Graphviz to the system PATH
 1. Install the required dependencies: `pip install -r requirements.txt`
 1. Download the necessary spaCy models:  
     `python -m spacy download en_core_web_sm`  
