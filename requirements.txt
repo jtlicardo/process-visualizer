@@ -5,7 +5,7 @@ graphviz==0.20.1
 numpy==1.24.0
 openai==0.27.2
 python-dotenv==1.0.0
-requests==2.28.1
+requests==2.31.0
 spacy-experimental==0.6.1
 thefuzz==0.19.0
 thefuzz[speedup]==0.19.0
