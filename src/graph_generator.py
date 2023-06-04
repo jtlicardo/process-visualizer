@@ -128,7 +128,9 @@ class GraphGenerator:
         assert isinstance(dictionary, dict)
         assert isinstance(list_of_lists, list)
         for lst in list_of_lists:
-            if isinstance(lst[0], dict) and lst[0] == dictionary:
+            if len(lst) == 0:
+                continue
+            elif isinstance(lst[0], dict) and lst[0] == dictionary:
                 return True
         return False
 
@@ -406,7 +408,7 @@ class GraphGenerator:
                         f"{parent_gateway['id']}_S",
                         element["content"]["go_to"],
                         label_parameter=element["content"]["condition"]["word"],
-                        weight="0"
+                        weight="0",
                     )
             elif element["type"] == "exclusive":
                 self.handle_gateway(
