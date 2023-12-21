@@ -9,5 +9,5 @@ requests==2.31.0
 spacy-experimental==0.6.1
 thefuzz==0.19.0
 thefuzz[speedup]==0.19.0
-transformers==4.30.0
+transformers==4.36.0
 en_coreference_web_trf @ https://github.com/explosion/spacy-experimental/releases/download/v0.6.1/en_coreference_web_trf-3.4.0a2-py3-none-any.whl
